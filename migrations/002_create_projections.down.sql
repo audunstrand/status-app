@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS status_updates;
+DROP TABLE IF EXISTS teams;

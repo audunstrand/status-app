@@ -1,0 +1,13 @@
+# Fly.io configuration for Scheduler service
+app = "status-app-scheduler"
+primary_region = "arn"  # Stockholm, Sweden - closest to Norway
+
+[build]
+  dockerfile = "Dockerfile.scheduler"
+
+[env]
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256

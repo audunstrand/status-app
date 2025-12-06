@@ -1,0 +1,13 @@
+# Fly.io configuration for Slackbot service
+app = "status-app-slackbot"
+primary_region = "arn"  # Stockholm, Sweden - closest to Norway
+
+[build]
+  dockerfile = "Dockerfile.slackbot"
+
+[env]
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256

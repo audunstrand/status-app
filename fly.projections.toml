@@ -1,0 +1,13 @@
+# Fly.io configuration for Projections service
+app = "status-app-projections"
+primary_region = "arn"  # Stockholm, Sweden - closest to Norway
+
+[build]
+  dockerfile = "Dockerfile.projections"
+
+[env]
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
