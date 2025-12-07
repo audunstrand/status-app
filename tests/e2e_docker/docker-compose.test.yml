@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres-eventstore:
     image: postgres:16-alpine

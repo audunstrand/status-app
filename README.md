@@ -2,11 +2,27 @@
 
 An event-sourced application for collecting and managing one-line status updates from teams via Slack.
 
+## ✅ Current Status
+
+**Production Ready**: 85% feature-complete and deployed!
+
+- ✅ **Slack Bot** - Fully functional, processes messages and mentions
+- ✅ **Event Sourcing** - Commands, events, and projections architecture
+- ✅ **Authentication** - Required for all services (API_SECRET)
+- ✅ **HTTP APIs** - Commands and Query APIs working
+- ✅ **Deployments** - All services running on Fly.io
+- ✅ **Tests** - Unit tests + Docker E2E tests
+
+**Remaining Work**: ~2.5 hours (see [TODO.md](TODO.md))
+- Real-time projections (1h)
+- Scheduler reminders (1h)
+- Minor fixes (30m)
+
 ## Architecture
 
 This application follows **Event Sourcing** and **CQRS** patterns:
 
-- **Event Store**: Append-only log of all events (source of truth)
+- **Event Store**: Append-only log of all events (PostgreSQL)
 - **Commands**: Actions that generate events
 - **Projections**: Read models built from events
 - **Loose Coupling**: Components communicate via events
@@ -34,39 +50,22 @@ This application follows **Event Sourcing** and **CQRS** patterns:
 
 ### Services
 
-1. **Event Store** (`cmd/eventstore`) - Stores all events
-2. **Commands** (`cmd/commands`) - Processes commands, emits events
-3. **Projections** (`cmd/projections`) - Builds read models from events
-4. **Slack Bot** (`cmd/slackbot`) - Receives Slack messages, sends commands
-5. **Scheduler** (`cmd/scheduler`) - Sends weekly poll reminders
-6. **API** (`cmd/api`) - Query endpoint for projections
+1. **Commands** (`cmd/commands`) - Processes commands, emits events
+2. **Projections** (`cmd/projections`) - Builds read models from events
+3. **Slack Bot** (`cmd/slackbot`) - Receives Slack messages, sends commands
+4. **Scheduler** (`cmd/scheduler`) - Sends periodic team reminders
+5. **API** (`cmd/api`) - Query endpoint for projections
 
 ## Getting Started
 
 ### Prerequisites
 
-- Go 1.21+
+- Go 1.23+
 - PostgreSQL 14+
 - Slack App with Bot Token
 - Docker (for E2E tests)
 
-### Security Setup ⚠️
-
-**IMPORTANT**: Before deploying to production, set up API authentication!
-
-```bash
-# Generate a secure API secret
-openssl rand -hex 32
-
-# For local development, add to .env file
-API_SECRET=<your-generated-secret>
-
-# For production (Fly.io), see docs/SECURITY.md
-```
-
-See [docs/SECURITY.md](docs/SECURITY.md) for complete setup instructions.
-
-### Setup
+### Local Development
 
 1. **Install dependencies**:
 ```bash
@@ -75,10 +74,12 @@ go mod download
 
 2. **Set environment variables**:
 ```bash
+export API_SECRET=$(openssl rand -hex 32)
 export SLACK_BOT_TOKEN="xoxb-your-token"
 export SLACK_SIGNING_KEY="xapp-your-key"
-export EVENT_STORE_URL="postgres://localhost:5432/statusapp_events"
-export PROJECTION_DB_URL="postgres://localhost:5432/statusapp_projections"
+export EVENT_STORE_URL="postgres://localhost:5432/eventstore"
+export PROJECTION_DB_URL="postgres://localhost:5432/projections"
+export COMMANDS_URL="http://localhost:8081"
 ```
 
 3. **Run migrations**:
@@ -86,10 +87,8 @@ export PROJECTION_DB_URL="postgres://localhost:5432/statusapp_projections"
 # Install golang-migrate
 go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
-# Run migrations for event store
+# Run migrations
 migrate -path migrations -database $EVENT_STORE_URL up
-
-# Run migrations for projections
 migrate -path migrations -database $PROJECTION_DB_URL up
 ```
 
@@ -97,6 +96,73 @@ migrate -path migrations -database $PROJECTION_DB_URL up
 ```bash
 # Terminal 1: Command service
 go run cmd/commands/main.go
+
+# Terminal 2: API service  
+go run cmd/api/main.go
+
+# Terminal 3: Projections service
+go run cmd/projections/main.go
+
+# Terminal 4: Slackbot service
+go run cmd/slackbot/main.go
+
+# Terminal 5: Scheduler service
+go run cmd/scheduler/main.go
+```
+
+## Testing
+
+### Unit Tests
+```bash
+go test ./...
+```
+
+### Docker E2E Tests
+```bash
+cd tests/e2e_docker
+make test
+```
+
+See [docs/TESTING.md](docs/TESTING.md) for more details.
+
+## Deployment
+
+See [docs/FLY_DEPLOYMENT.md](docs/FLY_DEPLOYMENT.md) for Fly.io deployment instructions.
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) - Detailed architecture overview
+- [Security](docs/SECURITY.md) - Authentication and security setup
+- [Testing](docs/TESTING.md) - Testing strategy and guidelines
+- [GitHub Actions](docs/GITHUB_ACTIONS.md) - CI/CD pipeline
+- [TODO](TODO.md) - Remaining work and priorities
+
+## Project Structure
+
+```
+├── cmd/              # Service entry points
+│   ├── api/         # Query API service
+│   ├── commands/    # Command handler service
+│   ├── projections/ # Projection builder
+│   ├── scheduler/   # Reminder scheduler
+│   └── slackbot/    # Slack integration
+├── internal/        # Internal packages
+│   ├── auth/       # Authentication middleware
+│   ├── commands/   # Command handlers
+│   ├── config/     # Configuration
+│   ├── events/     # Event store
+│   └── projections/# Projection logic
+├── migrations/     # Database migrations
+├── tests/          # E2E tests
+│   ├── e2e/       # Integration tests
+│   └── e2e_docker/# Docker E2E tests
+├── docs/          # Documentation
+└── Dockerfile.*   # Docker images for services
+```
+
+## License
+
+MIT
 
 # Terminal 2: Projection service
 go run cmd/projections/main.go
