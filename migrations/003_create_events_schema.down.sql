@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS events.events;
+DROP SCHEMA IF EXISTS events;
