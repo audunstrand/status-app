@@ -12,7 +12,53 @@
 
 ## 🚧 To Implement
 
-### 1. URL Structure Refactoring (1h)
+### 1. Restore Test Coverage (30m)
+
+**Current**: Lost validation tests during service consolidation
+- cmd/backend: 0% coverage
+- internal/events: 0% coverage  
+- internal/projections: 0% coverage
+- internal/config: 0% coverage
+
+**Previously had**:
+- cmd/commands/validation_test.go - Request validation tests (removed with directory)
+
+**Goal**: Restore and improve test coverage
+
+**Tasks**:
+1. **Restore request validation tests**:
+   - Move validation tests from deleted cmd/commands/validation_test.go
+   - Create cmd/backend/validation_test.go
+   - Test SubmitStatusUpdateRequest.Validate()
+   - Test RegisterTeamRequest.Validate()
+
+2. **Add missing package tests**:
+   - internal/events/postgres_store_test.go - Event storage/retrieval
+   - internal/projections/projector_test.go - Event processing
+   - internal/projections/repository_test.go - Projection queries
+   - internal/config/config_test.go - Config loading
+
+3. **Add backend integration tests**:
+   - Test HTTP endpoint routing
+   - Test auth middleware integration
+   - Test command → event → projection flow
+
+**Expected coverage after fixes**:
+- cmd/backend: 70%+ (routing + validation)
+- internal/events: 80%+ (core event sourcing)
+- internal/projections: 75%+ (projection logic)
+- internal/config: 60%+ (config parsing)
+
+**Current coverage**:
+- ✅ internal/auth: 100%
+- ✅ internal/commands: 76.6%
+- ✅ E2E tests: 77.6%
+
+**Estimated time**: 30 minutes
+
+---
+
+### 2. URL Structure Refactoring (1h)
 
 **Current**: URLs expose internal architecture
 - `/commands/submit-update` - reveals CQRS command handling
@@ -50,7 +96,7 @@ GET    /updates            - Get recent updates
 
 ---
 
-### 2. Migration Service (30m)
+### 3. Migration Service (30m)
 
 **Current**: Migrations run manually via psql  
 **Goal**: Automated migration runner as Fly.io service
@@ -68,7 +114,7 @@ GET    /updates            - Get recent updates
 
 ---
 
-### 3. Real-Time Projections (1h)
+### 4. Real-Time Projections (1h)
 
 **Current**: Projections poll every few seconds  
 **Goal**: Update immediately when events are written
@@ -108,7 +154,7 @@ func (s *PostgresStore) Subscribe(ctx context.Context, eventTypes []string) (<-c
 
 ---
 
-### 4. Scheduler Reminders (1h)
+### 5. Scheduler Reminders (1h)
 
 **Current**: Scheduler runs but doesn't send reminders  
 **Goal**: Send Slack messages on schedule
@@ -150,7 +196,7 @@ func sendSlackReminder(channelID, teamName string) error {
 
 ---
 
-### 5. Minor Fixes (30m)
+### 6. Minor Fixes (30m)
 
 **Fix ignored NOTIFY error**:
 ```go
