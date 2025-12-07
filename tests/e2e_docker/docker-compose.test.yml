@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  postgres-eventstore:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: eventstore
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432"
+    volumes:
+      - ../../migrations/001_create_events_table.up.sql:/docker-entrypoint-initdb.d/001_create_events_table.up.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres-projections:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: projections
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432"
+    volumes:
+      - ../../migrations/002_create_projections.up.sql:/docker-entrypoint-initdb.d/002_create_projections.up.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  commands:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.commands
+    environment:
+      EVENT_STORE_URL: postgres://postgres:postgres@postgres-eventstore:5432/eventstore?sslmode=disable
+      API_SECRET: test-secret-123
+      PORT: 8080
+    ports:
+      - "8080"
+    depends_on:
+      postgres-eventstore:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.api
+    environment:
+      PROJECTION_DB_URL: postgres://postgres:postgres@postgres-projections:5432/projections?sslmode=disable
+      API_SECRET: test-secret-456
+      PORT: 8080
+    ports:
+      - "8080"
+    depends_on:
+      postgres-projections:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  projections:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.projections
+    environment:
+      EVENT_STORE_URL: postgres://postgres:postgres@postgres-eventstore:5432/eventstore?sslmode=disable
+      PROJECTION_DB_URL: postgres://postgres:postgres@postgres-projections:5432/projections?sslmode=disable
+    depends_on:
+      postgres-eventstore:
+        condition: service_healthy
+      postgres-projections:
+        condition: service_healthy
