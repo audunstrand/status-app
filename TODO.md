@@ -10,7 +10,25 @@
 
 ## 🚧 To Implement
 
-### 1. Real-Time Projections (1h)
+### 1. Migration Service (30m)
+
+**Current**: Migrations run manually via psql  
+**Goal**: Automated migration runner as Fly.io service
+
+**Implementation**:
+- Create `cmd/migrate/main.go` that reads and executes SQL files from `/migrations`
+- Add `fly.migrate.toml` config for one-off deployment
+- Use golang-migrate library or custom SQL file executor
+- Run with: `fly deploy -c fly.migrate.toml`
+
+**Benefits**:
+- Version-controlled migrations
+- Automated on deploy
+- Repeatable and safe
+
+---
+
+### 2. Real-Time Projections (1h)
 
 **Current**: Projections poll every few seconds  
 **Goal**: Update immediately when events are written
@@ -50,7 +68,7 @@ func (s *PostgresStore) Subscribe(ctx context.Context, eventTypes []string) (<-c
 
 ---
 
-### 2. Scheduler Reminders (1h)
+### 3. Scheduler Reminders (1h)
 
 **Current**: Scheduler runs but doesn't send reminders  
 **Goal**: Send Slack messages on schedule
@@ -92,7 +110,7 @@ func sendSlackReminder(channelID, teamName string) error {
 
 ---
 
-### 3. Minor Fixes (30m)
+### 4. Minor Fixes (30m)
 
 **Fix ignored NOTIFY error**:
 ```go
@@ -117,6 +135,6 @@ if _, err := s.db.ExecContext(ctx, "NOTIFY events, $1", event.ID); err != nil {
 
 ## Summary
 
-**Total remaining work**: ~2.5 hours
+**Total remaining work**: ~3 hours
 
 Once complete, the app will be 100% feature-complete.
