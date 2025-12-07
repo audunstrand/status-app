@@ -3,7 +3,9 @@ app = "status-app-api"
 primary_region = "arn"  # Stockholm, Sweden - closest to Norway
 
 [build]
-  dockerfile = "Dockerfile.api"
+  dockerfile = "Dockerfile"
+  [build.args]
+    SERVICE = "api"
 
 [env]
   PORT = "8080"

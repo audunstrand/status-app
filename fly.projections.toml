@@ -3,7 +3,9 @@ app = "status-app-projections"
 primary_region = "arn"  # Stockholm, Sweden - closest to Norway
 
 [build]
-  dockerfile = "Dockerfile.projections"
+  dockerfile = "Dockerfile"
+  [build.args]
+    SERVICE = "projections"
 
 [env]
 

@@ -3,7 +3,9 @@ app = "status-app-slackbot"
 primary_region = "arn"  # Stockholm, Sweden - closest to Norway
 
 [build]
-  dockerfile = "Dockerfile.slackbot"
+  dockerfile = "Dockerfile"
+  [build.args]
+    SERVICE = "slackbot"
 
 [env]
 

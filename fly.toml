@@ -3,7 +3,9 @@ app = "status-app-commands"
 primary_region = "arn"  # Stockholm, Sweden - closest to Norway
 
 [build]
-  dockerfile = "Dockerfile.commands"
+  dockerfile = "Dockerfile"
+  [build.args]
+    SERVICE = "commands"
 
 [env]
   PORT = "8080"

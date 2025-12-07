@@ -3,7 +3,9 @@ app = "status-app-scheduler"
 primary_region = "arn"  # Stockholm, Sweden - closest to Norway
 
 [build]
-  dockerfile = "Dockerfile.scheduler"
+  dockerfile = "Dockerfile"
+  [build.args]
+    SERVICE = "scheduler"
 
 [env]
 
