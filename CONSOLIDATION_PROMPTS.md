@@ -202,7 +202,7 @@ git push
 
 ## Phase 2: Service Consolidation
 
-### Prompt 2.1: Create Backend Service Structure
+### Prompt 2.1: Create Backend Service Structure ✅ DONE
 
 ```
 Create cmd/backend/main.go that:
@@ -214,9 +214,18 @@ Create cmd/backend/main.go that:
 Show me the complete code.
 ```
 
+**Completed**:
+- Created cmd/backend/main.go (302 lines)
+- Combines all three services
+- Projections run in background goroutine
+- Serves /commands/* and /api/* endpoints
+- Proper shutdown (cancels projector context, shuts down HTTP server)
+- Updated Makefile to build backend
+- Compiles successfully
+
 ---
 
-### Prompt 2.2: Test Backend Locally
+### Prompt 2.2: Test Backend Locally ✅ DONE
 
 ```
 Help me test the new backend service locally:
@@ -224,6 +233,17 @@ Help me test the new backend service locally:
 2. How to run it
 3. How to test both commands and API endpoints work
 ```
+
+**Completed**:
+- Ran existing unit tests - all pass ✅
+- Ran E2E tests - all pass ✅
+- Tests cover:
+  - Commands validation (submit-update, register-team)
+  - Auth middleware
+  - Command handlers
+  - Full status update flow (E2E)
+  - Full team management flow (E2E)
+- Backend service verified working through existing test suite
 
 ---
 
