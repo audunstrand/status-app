@@ -1,10 +1,12 @@
 # API Security Setup Guide
 
-This guide explains how to set up API authentication for the Status App services.
+This guide explains the API authentication setup for the Status App services.
 
 ## Overview
 
-The app uses shared secret authentication to protect API endpoints from unauthorized access. All service-to-service communication requires a valid API key.
+**⚠️ REQUIRED**: The app requires shared secret authentication for all services. Services will not start without API_SECRET configured.
+
+All service-to-service communication requires a valid API key via the `Authorization: Bearer <secret>` header.
 
 ## Generate API Secret
 
@@ -20,23 +22,30 @@ Example output: `c69517c23d7ce83edd2e097a265e24b04861b3110282bae1e711deffd9fe70b
 
 ## Local Development
 
-Create a `.env` file in the project root:
+Set the API_SECRET environment variable (required):
 
 ```bash
-# Copy from example
-cp .env.example .env
+export API_SECRET=$(openssl rand -hex 32)
+export COMMANDS_URL=http://localhost:8081
+```
 
-# Edit and add your generated secret
+Or create a `.env` file:
+
+```bash
 API_SECRET=c69517c23d7ce83edd2e097a265e24b04861b3110282bae1e711deffd9fe70b4
 COMMANDS_URL=http://localhost:8081
 ```
 
+**Note**: Services will fail to start if API_SECRET is not set.
+
 ## Production Deployment (Fly.io)
 
-Set the API secret for all services:
+✅ **Already configured** for this project! 
+
+If you need to update the secret:
 
 ```bash
-# Generate secret
+# Generate new secret
 SECRET=$(openssl rand -hex 32)
 
 # Set for all apps
@@ -44,10 +53,7 @@ fly secrets set API_SECRET=$SECRET -a status-app-commands
 fly secrets set API_SECRET=$SECRET -a status-app-api
 fly secrets set API_SECRET=$SECRET -a status-app-slackbot
 fly secrets set API_SECRET=$SECRET -a status-app-scheduler
-
-# Set service URLs
-fly secrets set COMMANDS_URL=https://status-app-commands.fly.dev -a status-app-slackbot
-fly secrets set COMMANDS_URL=https://status-app-commands.fly.dev -a status-app-scheduler
+fly secrets set API_SECRET=$SECRET -a status-app-projections
 ```
 
 ## Verify Setup
@@ -124,6 +130,15 @@ fly secrets set API_SECRET=$NEW_SECRET -a status-app-scheduler
 
 ## Troubleshooting
 
+### Service won't start
+
+**Problem**: Service fails to start with error
+
+**Solution**: 
+- Check that API_SECRET environment variable is set
+- Services now REQUIRE API_SECRET and will fail fast if missing
+- Set it using `export API_SECRET=<secret>` or Fly.io secrets
+
 ### 401 Unauthorized errors
 
 **Problem**: Getting 401 errors when services try to communicate
@@ -141,14 +156,6 @@ fly secrets set API_SECRET=$NEW_SECRET -a status-app-scheduler
 1. Verify COMMANDS_URL is set correctly
 2. Check network connectivity between Fly.io apps
 3. Verify services are running: `fly status -a status-app-commands`
-
-### Authentication disabled warning
-
-**Problem**: Seeing "WARNING: API authentication disabled" in logs
-
-**Solution**: 
-- The API_SECRET environment variable is not set
-- Set it using `fly secrets set API_SECRET=<secret>`
 
 ## Security Best Practices
 

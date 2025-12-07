@@ -3,20 +3,14 @@
 ## Quick Reference
 
 ```bash
-# Run all tests (unit + e2e)
-make test
+# Run all unit tests
+go test ./...
 
-# Run only unit tests (fast, no Docker)
-make test-unit
+# Run Docker E2E tests (requires Docker)
+cd tests/e2e_docker && make test
 
-# Run only E2E tests (requires Docker)
-make test-e2e
-
-# Generate coverage report
-make test-coverage
-
-# Watch mode for development
-make test-watch
+# Run integration tests
+cd tests/e2e && go test ./...
 ```
 
 ## Test Types
@@ -24,25 +18,31 @@ make test-watch
 ### Unit Tests ⚡
 **Location:** `./internal/...` and `./cmd/...`  
 **Dependencies:** None  
-**Speed:** Instant (~0.1s)
+**Speed:** Instant (~0.2s)
 
 ```bash
-make test-unit
+go test ./...
 ```
 
 **What's tested:**
-- Command handlers (6 tests)
-- Request validation (10 tests)
-- All command types
-- Edge cases and error handling
+- ✅ Command handlers (3 tests)
+- ✅ Request validation (10 tests)  
+- ✅ Auth middleware (6 tests)
+- ✅ All command types
+- ✅ Edge cases and error handling
 
-### E2E Tests 🐳
+**Coverage:**
+```bash
+go test ./... -cover
+```
+
+### Integration Tests 🔗
 **Location:** `./tests/e2e/...`  
-**Dependencies:** Docker Desktop  
+**Dependencies:** Docker (testcontainers)  
 **Speed:** ~5-10 seconds
 
 ```bash
-make test-e2e
+cd tests/e2e && go test ./...
 ```
 
 **What's tested:**
@@ -52,38 +52,37 @@ make test-e2e
 - Projection building
 - Database queries
 
-## Coverage Report
-
-Generate HTML coverage report:
-
-```bash
-make test-coverage
-```
-
-Opens `coverage.html` showing line-by-line coverage.
-
-## Watch Mode (Development)
-
-Auto-run unit tests on file changes:
+### Docker E2E Tests 🐳
+**Location:** `./tests/e2e_docker/...`  
+**Dependencies:** Docker Desktop  
+**Speed:** ~90 seconds (full build + test)
 
 ```bash
-# Install entr first (macOS)
-brew install entr
-
-# Run watch mode
-make test-watch
+cd tests/e2e_docker
+make test
 ```
 
-Press `Ctrl+C` to stop.
+**What's tested:**
+- ✅ Real HTTP communication between services
+- ✅ Actual Docker containers (not mocks)
+- ✅ Authentication flow end-to-end
+- ✅ Database migrations
+- ✅ Service health checks
+- ✅ Complete status submission flow
 
-## CI/CD
+**Tests:**
+1. `TestDockerE2E_SubmitStatusUpdate` - Submit and verify status update
+2. `TestDockerE2E_AuthenticationRequired` - Verify auth is enforced
+3. `TestDockerE2E_APIEndpoints` - Test query API
+4. `TestDockerE2E_EndToEndFlow` - Complete flow with event+projection
 
-The `make test` command runs both unit and E2E tests, perfect for CI:
-
-```yaml
-# GitHub Actions example
-- name: Run tests
-  run: make test
+**Available commands:**
+```bash
+make test   # Run full E2E test suite
+make up     # Start services manually
+make down   # Stop services
+make logs   # View logs
+make clean  # Full cleanup
 ```
 
 ## Troubleshooting
@@ -105,23 +104,41 @@ Subsequent runs reuse the image and are much faster.
 
 ```
 ├── internal/
+│   ├── auth/
+│   │   └── middleware_test.go      # Auth middleware tests
 │   └── commands/
-│       └── handler_test.go          # Command handler unit tests
+│       └── handler_test.go         # Command handler tests
 ├── cmd/
 │   └── commands/
-│       └── validation_test.go       # Validation unit tests
+│       └── validation_test.go      # Validation tests
 └── tests/
     ├── testutil/
-    │   └── database.go              # Testcontainers setup
-    └── e2e/
-        ├── helpers.go               # Test helpers
-        ├── status_flow_test.go      # Status update E2E test
-        └── team_management_test.go  # Team management E2E test
+    │   └── database.go             # Testcontainers setup
+    ├── e2e/
+    │   ├── helpers.go              # Integration test helpers
+    │   ├── status_flow_test.go     # Status update flow
+    │   └── team_management_test.go # Team management
+    └── e2e_docker/
+        ├── docker-compose.test.yml  # Service orchestration
+        ├── e2e_docker_test.go       # HTTP E2E tests
+        └── Makefile                 # Test commands
 ```
 
-## Best Practices
+## CI/CD
 
-1. **Run unit tests frequently** - They're fast and catch most issues
-2. **Run E2E tests before pushing** - Catch integration issues early
-3. **Check coverage regularly** - Aim for >80% coverage
-4. **Use watch mode during development** - Get instant feedback
+GitHub Actions runs all tests on every push:
+
+```yaml
+# .github/workflows/ci.yml
+- name: Run unit tests
+  run: go test ./...
+  
+- name: Run E2E tests  
+  run: cd tests/e2e && go test ./...
+```
+
+Docker E2E tests can be added to CI with:
+```yaml
+- name: Run Docker E2E tests
+  run: cd tests/e2e_docker && make test
+```
