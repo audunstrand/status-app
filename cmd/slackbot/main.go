@@ -89,6 +89,20 @@ func (bot *SlackBot) handleEvent(event slackevents.EventsAPIEvent) {
 	case slackevents.CallbackEvent:
 		innerEvent := event.InnerEvent
 		switch ev := innerEvent.Data.(type) {
+		case *slackevents.AppMentionEvent:
+			log.Printf("Bot mentioned by user %s in channel %s: %s", ev.User, ev.Channel, ev.Text)
+			
+			teamID := ev.Channel
+			
+			if err := bot.sendStatusUpdate(teamID, ev.Text, ev.User); err != nil {
+				log.Printf("Failed to send status update: %v", err)
+				bot.sendSlackMessage(ev.Channel, "❌ Failed to record your status update. Please try again.")
+				return
+			}
+			
+			log.Printf("Successfully submitted status update for team %s", teamID)
+			bot.sendSlackMessage(ev.Channel, "✅ Status update recorded!")
+			
 		case *slackevents.MessageEvent:
 			// Ignore bot messages and message subtypes (edits, deletes, etc)
 			if ev.BotID != "" || ev.SubType != "" {

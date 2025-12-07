@@ -1,1 +1,1 @@
-Always verify that a deploy has gone ok, after pushing to git
+Always verify that a deploy has gone ok, after pushing to git, by checking the status of the github actions run
