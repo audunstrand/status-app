@@ -16,14 +16,16 @@ import (
 )
 
 type SlackBot struct {
-	cfg    *config.Config
-	client *http.Client
+	cfg       *config.Config
+	client    *http.Client
+	slackAPI  *slack.Client
 }
 
-func NewSlackBot(cfg *config.Config) *SlackBot {
+func NewSlackBot(cfg *config.Config, slackAPI *slack.Client) *SlackBot {
 	return &SlackBot{
-		cfg:    cfg,
-		client: &http.Client{},
+		cfg:      cfg,
+		client:   &http.Client{},
+		slackAPI: slackAPI,
 	}
 }
 
@@ -33,13 +35,13 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	bot := NewSlackBot(cfg)
-
 	api := slack.New(
 		cfg.SlackBotToken,
 		slack.OptionDebug(true),
 		slack.OptionAppLevelToken(cfg.SlackSigningKey),
 	)
+
+	bot := NewSlackBot(cfg, api)
 
 	client := socketmode.New(api)
 
@@ -88,9 +90,25 @@ func (bot *SlackBot) handleEvent(event slackevents.EventsAPIEvent) {
 		innerEvent := event.InnerEvent
 		switch ev := innerEvent.Data.(type) {
 		case *slackevents.MessageEvent:
-			log.Printf("Message: %v", ev.Text)
-			// TODO: Parse message and send command to command service
-			// bot.sendStatusUpdate(ev.Channel, ev.Text, ev.User)
+			// Ignore bot messages and message subtypes (edits, deletes, etc)
+			if ev.BotID != "" || ev.SubType != "" {
+				return
+			}
+			
+			log.Printf("Received message from user %s in channel %s: %s", ev.User, ev.Channel, ev.Text)
+			
+			// Map channel to team ID (using channel ID as team ID for now)
+			teamID := ev.Channel
+			
+			// Send status update to Commands service
+			if err := bot.sendStatusUpdate(teamID, ev.Text, ev.User); err != nil {
+				log.Printf("Failed to send status update: %v", err)
+				bot.sendSlackMessage(ev.Channel, "❌ Failed to record your status update. Please try again.")
+				return
+			}
+			
+			log.Printf("Successfully submitted status update for team %s", teamID)
+			bot.sendSlackMessage(ev.Channel, "✅ Status update recorded!")
 		}
 	}
 }
@@ -128,4 +146,14 @@ func (bot *SlackBot) sendStatusUpdate(teamID, content, author string) error {
 	}
 	
 	return nil
+}
+
+func (bot *SlackBot) sendSlackMessage(channel, message string) {
+	_, _, err := bot.slackAPI.PostMessage(
+		channel,
+		slack.MsgOptionText(message, false),
+	)
+	if err != nil {
+		log.Printf("Failed to send Slack message: %v", err)
+	}
 }
