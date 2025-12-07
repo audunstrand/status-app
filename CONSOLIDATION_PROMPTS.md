@@ -290,12 +290,27 @@ flyctl secrets set COMMANDS_URL="https://status-app-commands.fly.dev" -a status-
 
 ---
 
-### Prompt 2.5: Switch Scheduler to Backend
+### Prompt 2.5: Switch Scheduler to Backend ✅ DONE
 
 ```
 Update Scheduler to use the new backend service the same way as Slackbot.
 Show me how to verify both Slackbot and Scheduler are using the backend.
 ```
+
+**Completed**:
+- Updated COMMANDS_URL=https://status-app-backend.fly.dev ✅
+- Scheduler restarted successfully ✅
+- Now sends commands to backend instead of old commands service ✅
+
+**Services now using backend:**
+- ✅ Slackbot → backend
+- ✅ Scheduler → backend  
+- ✅ Backend → serving both + running projections
+
+**Old services no longer in use:**
+- ❌ status-app-commands (replaced by backend)
+- ❌ status-app-api (replaced by backend)
+- ❌ status-app-projections (replaced by backend)
 
 ---
 
