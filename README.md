@@ -48,6 +48,23 @@ This application follows **Event Sourcing** and **CQRS** patterns:
 - Go 1.21+
 - PostgreSQL 14+
 - Slack App with Bot Token
+- Docker (for E2E tests)
+
+### Security Setup ⚠️
+
+**IMPORTANT**: Before deploying to production, set up API authentication!
+
+```bash
+# Generate a secure API secret
+openssl rand -hex 32
+
+# For local development, add to .env file
+API_SECRET=<your-generated-secret>
+
+# For production (Fly.io), see docs/SECURITY.md
+```
+
+See [docs/SECURITY.md](docs/SECURITY.md) for complete setup instructions.
 
 ### Setup
 
@@ -133,8 +150,20 @@ go run cmd/scheduler/main.go
 
 ## Future Enhancements
 
-- [ ] NATS/Kafka for event streaming
-- [ ] EventStoreDB for dedicated event store
+See [TODO.md](TODO.md) for complete list of planned features.
+
+### High Priority
+- [x] Service-to-service authentication (Shared secret)
+- [ ] Real-time projections with PostgreSQL LISTEN/NOTIFY
+- [ ] Slack message handling integration
+- [ ] Scheduler reminder logic
+
+### Medium Priority
+- [ ] Health check endpoints for all services
+- [ ] Structured logging and observability
+- [ ] User-facing authentication per team
+
+### Nice to Have
 - [ ] Web dashboard for viewing updates
 - [ ] Slack slash commands (`/status`, `/team-register`)
 - [ ] Analytics and reporting
