@@ -349,7 +349,7 @@ Tell me what to look for to confirm it's working properly.
 
 ---
 
-### Prompt 2.7: Decommission Old Services
+### Prompt 2.7: Decommission Old Services ✅ DONE
 
 ```
 Now that backend is working, help me:
@@ -359,6 +359,53 @@ Now that backend is working, help me:
 4. Commit the changes
 
 Show me the exact commands.
+```
+
+**Completed**:
+1. ✅ Destroyed Fly.io apps:
+   - status-app-commands
+   - status-app-api
+   - status-app-projections
+2. ✅ Removed cmd directories (done in earlier cleanup)
+3. ✅ Removed old fly configs:
+   - fly.toml
+   - fly.api.toml
+   - fly.projections.toml
+
+**Remaining services (3):**
+- ✅ backend (fly.backend.toml)
+- ✅ scheduler (fly.scheduler.toml)
+- ✅ slackbot (fly.slackbot.toml)
+- ✅ status-app-db (database)
+
+**Architecture:** 5 services + 2 databases → **3 services + 1 database** ✅
+
+---
+
+### ⏸️ COMMIT POINT - Phase 2 Complete! 🎉
+
+**Service Consolidation Complete**: 5 services → 3 services
+
+Final architecture:
+- **Backend**: Commands + API + Projections (consolidated)
+- **Slackbot**: Slack integration
+- **Scheduler**: Reminder scheduling  
+- **Database**: PostgreSQL with events & projections schemas
+
+Commit these changes:
+```bash
+git add -A
+git commit -m "Complete Phase 2: Service consolidation
+
+- Deployed backend service (commands + api + projections)
+- Switched Slackbot and Scheduler to use backend
+- Decommissioned old services
+- Removed old fly configs
+
+Architecture: 5 services + 2 databases → 3 services + 1 database
+
+Prompts 2.1-2.7 complete"
+git push
 ```
 
 ---
