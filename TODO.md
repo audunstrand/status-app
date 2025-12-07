@@ -1,5 +1,33 @@
 # Status App TODO List
 
+## ✅ Completed Items
+
+### Docker E2E Tests
+**Status**: ✅ Completed (2025-12-07)  
+**Completed Work**:
+- Created `tests/e2e_docker/` with Docker Compose setup
+- Implemented 4 comprehensive HTTP-based tests against real containers
+- All tests passing: authentication, endpoints, end-to-end flow
+- Fixed JSONB null metadata handling bug (prevented status updates from saving)
+- Cleaned up broken test files
+
+### Auth Middleware Testing
+**Status**: ✅ Completed (2025-12-07)  
+**Completed Work**:
+- Added unit tests for auth middleware with nested ServeMux pattern
+- Verified no URL path stripping issues
+- Tests confirm authentication works correctly
+
+### Slack Integration - Basic
+**Status**: ✅ Working (2025-12-07)  
+**Completed Work**:
+- Bot responds to `@mentions` in Slack
+- Successfully receives and stores status updates
+- JSONB bug fix allows updates to be persisted
+- Deployed and verified in production
+
+---
+
 ## 🔴 Critical - Core Functionality
 
 ### 1. Implement Real-Time Event Projections with PostgreSQL LISTEN/NOTIFY
@@ -601,6 +629,82 @@
 - Abuse the system
 
 **Strongly recommend implementing #10 before deploying to production!**
+
+---
+
+## 📋 Next Steps (Recommended Priority)
+
+### 🔥 CRITICAL - Do First (Security Issue)
+**Item #10: Service-to-Service Authentication**
+- **Current Risk**: All APIs are publicly accessible - anyone can submit fake updates or query data
+- **Estimated Time**: 2 hours
+- **Action**: Implement shared secret API keys for internal service authentication
+
+### 🎯 High Priority - Core Features (Week 1)
+
+1. **Real-Time Event Projections** (Item #1)
+   - Currently projections only update on restart
+   - Implement PostgreSQL LISTEN/NOTIFY
+   - **Time**: 1 hour
+
+2. **Slack Message Handling** (Item #2)
+   - Parse incoming messages and extract status updates
+   - Send to Commands service
+   - Map channels to teams
+   - **Time**: 1.5 hours
+
+3. **Scheduler Team Reminders** (Item #3)
+   - Send periodic reminders to teams
+   - Track reminder schedule and last sent time
+   - **Time**: 1.5 hours
+
+### 💪 Important - Better UX (Week 2)
+
+4. **Error Handling & Validation** (Item #4)
+   - Fix ignored errors
+   - Add retry logic
+   - Better validation
+   - **Time**: 1 hour
+
+5. **Health Check Endpoints** (Item #5)
+   - Add /health to all services
+   - Configure Fly.io health checks
+   - **Time**: 45 minutes
+
+6. **Logging & Observability** (Item #6)
+   - Structured logging with slog
+   - Metrics and tracing
+   - **Time**: 2.5 hours
+
+### 🚀 Nice to Have - Features (As Needed)
+
+- Team Dashboard UI (Item #8)
+- Slack Slash Commands (Item #9)
+- Update Editing/Deletion (Item #7)
+- User-facing Auth (Item #11)
+
+### 🔧 Technical Debt (Ongoing)
+
+- Integration Tests (Item #12)
+- API Documentation (Item #13)
+- Database Migration Management (Item #14)
+
+---
+
+## Summary Timeline
+
+**Week 1 - Get Core Working**:
+1. Day 1: Security (2h) + Real-time projections (1h) = 3h
+2. Day 2: Slack handling (1.5h) + Scheduler (1.5h) = 3h
+3. Day 3: Error handling (1h) + Health checks (45m) = 1.75h
+
+**Week 2 - Polish & UX**:
+- Logging/Observability (2.5h)
+- User testing & feedback
+- Bug fixes
+
+**Week 3+ - Features**:
+- Based on user feedback and priorities
 
 ---
 
