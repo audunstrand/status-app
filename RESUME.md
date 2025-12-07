@@ -4,60 +4,59 @@
 
 We are consolidating the status-app architecture:
 - **Goal**: 5 services + 2 databases → 3 services + 1 database
-- **Progress**: Working through CONSOLIDATION_PROMPTS.md step by step
+- **Progress**: Phase 1 COMPLETE! ✅
 - **Current Date**: 2025-12-07
 
 ## What's Been Completed
 
-### ✅ Prompts 1.1-1.4 DONE
+### ✅ Phase 1: Database Consolidation COMPLETE!
 
-1. **Prompt 1.1**: Created new Fly.io database `status-app-db` with schemas:
-   - `events` schema ✅
-   - `projections` schema ✅
-   - Verified with `\dn` command
+**Prompts 1.1-1.10 ALL DONE** 
 
-2. **Prompt 1.2**: Created event store migration files:
-   - `migrations/003_create_events_schema.up.sql` ✅
-   - `migrations/003_create_events_schema.down.sql` ✅
+1. **Prompt 1.1**: Created new Fly.io database `status-app-db` ✅
+2. **Prompt 1.2**: Created event store migration files ✅
+3. **Prompt 1.3**: Created projections migration files ✅
+4. **Prompt 1.4**: Ran migrations on new database ✅
+5. **Prompt 1.5**: Verified old databases empty (no data to copy) ✅
+6. **Prompt 1.6**: Switched Commands service to new DB ✅
+7. **Prompt 1.7**: Switched Projections service to new DB ✅
+8. **Prompt 1.8**: Switched API service to new DB ✅
+9. **Prompt 1.9**: Switched Scheduler service to new DB ✅
+10. **Prompt 1.10**: Decommissioned old databases ✅
 
-3. **Prompt 1.3**: Created projections migration files:
-   - `migrations/004_create_projections_schema.up.sql` ✅
-   - `migrations/004_create_projections_schema.down.sql` ✅
+**Result**: 2 databases → 1 database 🎉
 
-4. **Prompt 1.4**: Ran migrations on new database:
-   - `events.events` table created with all indexes ✅
-   - `projections.teams` table created ✅
-   - `projections.status_updates` table created with all indexes ✅
-   - Verified with `\dt events.*` and `\dt projections.*` ✅
+All services now using single `status-app-db`:
+- Commands: writes to `events.events`
+- Projections: reads `events.events`, writes `projections.*`
+- API: reads `projections.*`
+- Scheduler: reads `projections.*`
+- Slackbot: no database changes
 
-### 📋 All Changes Committed
-
-- Migration files committed ✅
-- CONSOLIDATION_PROMPTS.md updated with progress ✅
-- TODO.md updated with migration service task ✅
+Old databases destroyed:
+- ❌ status-app-eventstore
+- ❌ status-app-projections-db
 
 ### 🔄 Next Steps
 
-**Continue with Prompt 1.5** - Copy Production Data
+**Continue with Phase 2** - Service Consolidation
 
-From CONSOLIDATION_PROMPTS.md:
-```
-Help me copy existing data from the old databases to the new one.
-First, show me how to check what data exists in production.
-Then provide the commands to copy it to the new database.
-```
+Start with Prompt 2.1 - Create Backend Service Structure
 
 ## Prompt to Resume
 
 ```
-We're in the middle of architecture consolidation using CONSOLIDATION_PROMPTS.md.
+We've completed Phase 1 of the architecture consolidation!
 
 Completed:
-- Prompts 1.1-1.4 ✅ (database created, migration files created and committed, migrations run)
+- Phase 1 (Prompts 1.1-1.10) ✅ Database consolidation complete
+- All services migrated to single status-app-db
+- Old databases decommissioned
 
-Next: Prompt 1.5 - Copy production data from old databases to new consolidated database
+Next: Phase 2 - Service consolidation (Prompts 2.1-2.7)
+Goal: Merge commands + api + projections into single backend service
 
-Please continue with Prompt 1.5.
+Please continue with Prompt 2.1: Create Backend Service Structure
 ```
 
 ## Repository Location

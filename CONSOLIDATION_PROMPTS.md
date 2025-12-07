@@ -75,7 +75,7 @@ Then help me verify the tables exist in the correct schemas.
 
 ---
 
-### Prompt 1.5: Copy Production Data
+### Prompt 1.5: Copy Production Data ✅ DONE
 
 ```
 Help me copy existing data from the old databases to the new one.
@@ -83,9 +83,11 @@ First, show me how to check what data exists in production.
 Then provide the commands to copy it to the new database.
 ```
 
+**Completed**: Old databases were empty (0 events, 0 teams, 0 status_updates). No data to copy.
+
 ---
 
-### Prompt 1.6: Switch Commands Service to New DB
+### Prompt 1.6: Switch Commands Service to New DB ✅ DONE
 
 ```
 Update the Commands service to use the new database:
@@ -95,9 +97,15 @@ Update the Commands service to use the new database:
 4. Show me how to verify it's writing to the new database
 ```
 
+**Completed**: 
+- Detached old event store database
+- Attached new status-app-db
+- Set EVENT_STORE_URL with search_path=events
+- Service healthy and connected to new database
+
 ---
 
-### Prompt 1.7: Switch Projections Service to New DB
+### Prompt 1.7: Switch Projections Service to New DB ✅ DONE
 
 ```
 Update the Projections service to use the new database:
@@ -106,9 +114,16 @@ Update the Projections service to use the new database:
 3. Show me how to verify it's reading/writing to the new database
 ```
 
+**Completed**:
+- Detached old databases
+- Attached new status-app-db
+- Set EVENT_STORE_URL with search_path=events
+- Set PROJECTION_DB_URL with search_path=projections
+- Service healthy and connected to new database
+
 ---
 
-### Prompt 1.8: Switch API Service to New DB
+### Prompt 1.8: Switch API Service to New DB ✅ DONE
 
 ```
 Update the API service to use the new database:
@@ -117,24 +132,70 @@ Update the API service to use the new database:
 3. Show me how to verify it's reading from the new database
 ```
 
+**Completed**:
+- Detached old projections database
+- Attached new status-app-db
+- Set PROJECTION_DB_URL with search_path=projections
+- Service healthy and connected to new database
+
 ---
 
-### Prompt 1.9: Switch Scheduler to New DB
+### Prompt 1.9: Switch Scheduler to New DB ✅ DONE
 
 ```
 Update the Scheduler service to use the new database with the same approach as the API service.
 Then show me how to verify all services are using the new database.
 ```
 
+**Completed**:
+- Detached old projections database
+- Attached new status-app-db
+- Set PROJECTION_DB_URL with search_path=projections
+- Service healthy and connected to new database
+- All 5 services verified healthy on new database
+
 ---
 
-### Prompt 1.10: Monitor and Decommission Old Databases
+### Prompt 1.10: Monitor and Decommission Old Databases ✅ DONE
 
 ```
 Show me commands to:
 1. Check logs for all services to ensure no errors
 2. Verify new database has recent data
 3. Destroy the old database apps: status-app-eventstore and status-app-projections-db
+```
+
+**Completed**:
+- All service logs checked - no errors
+- New database verified with proper schemas (events, projections)
+- Old databases destroyed: status-app-eventstore and status-app-projections-db
+- All services remain healthy after decommissioning
+
+---
+
+### ⏸️ COMMIT POINT - Phase 1 Complete! 🎉
+
+**Database Consolidation Complete**: 2 databases → 1 database
+
+All services now use single `status-app-db`:
+- Commands: writes to `events.events`
+- Projections: reads from `events.events`, writes to `projections.*`
+- API: reads from `projections.*`
+- Scheduler: reads from `projections.*`
+- Slackbot: no database (calls Commands)
+
+Commit these changes:
+```bash
+git add CONSOLIDATION_PROMPTS.md RESUME.md
+git commit -m "Complete Phase 1: Database consolidation
+
+- All 5 services migrated to status-app-db
+- Old databases decommissioned
+- All services healthy and verified
+- Ready for Phase 2: Service consolidation
+
+Prompts 1.1-1.10 complete"
+git push
 ```
 
 ---
