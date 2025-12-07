@@ -68,14 +68,31 @@ func handleGetTeams(repo *projections.Repository) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(teams)
 	}
 }
 
 func handleGetTeam(repo *projections.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO: Extract team ID from URL
-		w.WriteHeader(http.StatusOK)
+		teamID := r.PathValue("id")
+		if teamID == "" {
+			http.Error(w, "team ID is required", http.StatusBadRequest)
+			return
+		}
+
+		team, err := repo.GetTeam(r.Context(), teamID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "team not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(team)
 	}
 }
 
@@ -86,13 +103,26 @@ func handleGetRecentUpdates(repo *projections.Repository) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(updates)
 	}
 }
 
 func handleGetTeamUpdates(repo *projections.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO: Extract team ID from URL and get updates
-		w.WriteHeader(http.StatusOK)
+		teamID := r.PathValue("id")
+		if teamID == "" {
+			http.Error(w, "team ID is required", http.StatusBadRequest)
+			return
+		}
+
+		updates, err := repo.GetTeamUpdates(r.Context(), teamID, 50)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(updates)
 	}
 }

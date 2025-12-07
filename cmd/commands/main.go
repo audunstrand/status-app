@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -13,6 +15,44 @@ import (
 	"github.com/yourusername/status-app/internal/config"
 	"github.com/yourusername/status-app/internal/events"
 )
+
+type SubmitStatusUpdateRequest struct {
+	TeamID  string `json:"team_id"`
+	Content string `json:"content"`
+	Author  string `json:"author"`
+}
+
+func (r *SubmitStatusUpdateRequest) Validate() error {
+	if r.TeamID == "" {
+		return errors.New("team_id is required")
+	}
+	if r.Content == "" {
+		return errors.New("content is required")
+	}
+	if len(r.Content) > 500 {
+		return errors.New("content must be 500 characters or less")
+	}
+	if r.Author == "" {
+		return errors.New("author is required")
+	}
+	return nil
+}
+
+type RegisterTeamRequest struct {
+	Name         string `json:"name"`
+	SlackChannel string `json:"slack_channel"`
+	PollSchedule string `json:"poll_schedule"`
+}
+
+func (r *RegisterTeamRequest) Validate() error {
+	if r.Name == "" {
+		return errors.New("name is required")
+	}
+	if r.SlackChannel == "" {
+		return errors.New("slack_channel is required")
+	}
+	return nil
+}
 
 func main() {
 	cfg, err := config.Load()
@@ -60,14 +100,76 @@ func main() {
 
 func handleSubmitUpdate(handler *commands.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO: Parse request and create command
-		w.WriteHeader(http.StatusOK)
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req SubmitStatusUpdateRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if err := req.Validate(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		cmd := commands.SubmitStatusUpdate{
+			TeamID:    req.TeamID,
+			Content:   req.Content,
+			Author:    req.Author,
+			SlackUser: req.Author, // Default to author if no slack user
+			Timestamp: time.Now(),
+		}
+
+		if err := handler.Handle(r.Context(), cmd); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "success",
+		})
 	}
 }
 
 func handleRegisterTeam(handler *commands.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO: Parse request and create command
-		w.WriteHeader(http.StatusOK)
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req RegisterTeamRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if err := req.Validate(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		cmd := commands.RegisterTeam{
+			Name:         req.Name,
+			SlackChannel: req.SlackChannel,
+			PollSchedule: req.PollSchedule,
+		}
+
+		if err := handler.Handle(r.Context(), cmd); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "success",
+		})
 	}
 }
