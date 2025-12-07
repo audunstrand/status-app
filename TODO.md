@@ -19,7 +19,7 @@
 - Tests confirm authentication works correctly
 
 ### Service-to-Service Authentication ✅
-**Status**: ✅ IMPLEMENTED (2025-12-07)  
+**Status**: ✅ FULLY IMPLEMENTED AND ENABLED  
 **Completed Work**:
 - ✅ `RequireAPIKey` middleware in `internal/auth/middleware.go`
 - ✅ API Secret configuration in all services
@@ -27,8 +27,8 @@
 - ✅ API service protected with auth middleware  
 - ✅ Slackbot sends Authorization header with requests
 - ✅ Works when `API_SECRET` environment variable is set
-- ⚠️ **NOTE**: Currently disabled in production (API_SECRET not set in Fly.io)
-- **Action Needed**: Set API_SECRET in Fly.io secrets to enable protection
+- ✅ **API_SECRET configured in Fly.io production**
+- ✅ **All services secured in production**
 
 ### Health Check Endpoints ✅
 **Status**: ✅ IMPLEMENTED
@@ -435,9 +435,9 @@ for _, team := range teams {
 
 ---
 
-### 10. ~~Add Service-to-Service Authentication~~ ✅ IMPLEMENTED
+### 10. ~~Add Service-to-Service Authentication~~ ✅ COMPLETE
 **Priority**: High  
-**Status**: ✅ CODE COMPLETE, ⚠️ NOT ENABLED IN PRODUCTION
+**Status**: ✅ FULLY IMPLEMENTED AND ENABLED IN PRODUCTION
 
 **Completed Implementation**:
 - ✅ Shared secret API key approach
@@ -447,25 +447,10 @@ for _, team := range teams {
 - ✅ API service applies middleware when `APISecret` is set
 - ✅ Slackbot sends `Authorization: Bearer <secret>` header
 - ✅ Comprehensive unit tests in `internal/auth/middleware_test.go`
+- ✅ **API_SECRET configured in all Fly.io services**
+- ✅ **Production APIs are now secured**
 
-**Current Production State**:
-- ⚠️ **APIs ARE CURRENTLY PUBLIC** because API_SECRET is not set in Fly.io
-- Services log: "WARNING: API authentication disabled - set API_SECRET environment variable"
-
-**To Enable Authentication (15 minutes)**:
-```bash
-# Generate secret
-SECRET=$(openssl rand -hex 32)
-
-# Set in all Fly.io apps
-fly secrets set API_SECRET=$SECRET -a status-app-commands
-fly secrets set API_SECRET=$SECRET -a status-app-api
-fly secrets set API_SECRET=$SECRET -a status-app-slackbot
-fly secrets set API_SECRET=$SECRET -a status-app-scheduler
-fly secrets set API_SECRET=$SECRET -a status-app-projections
-```
-
-**Security Status**: 🔴 Code ready but protection disabled
+**Security Status**: ✅ Protected and working
 
 **Implementation Plan**:
 
@@ -725,12 +710,6 @@ fly secrets set API_SECRET=$SECRET -a status-app-projections
 
 ## 📋 Next Steps (Recommended Priority)
 
-### 🔥 URGENT - Enable Authentication (15 minutes)
-**Item #10: Enable Service-to-Service Authentication**
-- **Current Risk**: APIs are public (code is ready, just not enabled)
-- **Action**: Set `API_SECRET` in Fly.io for all services
-- **Estimated Time**: 15 minutes
-
 ### 🎯 High Priority - Core Features
 
 1. **Real-Time Event Projections** (Item #1) - ❌ NOT DONE
@@ -741,7 +720,7 @@ fly secrets set API_SECRET=$SECRET -a status-app-projections
 
 2. **Scheduler Team Reminders** (Item #3) - ⚠️ HALF DONE
    - Infrastructure exists, needs reminder logic and Slack integration
-   - **Time**: 1 hour (reduced from 1.5h since structure is done)
+   - **Time**: 1 hour
    - **Impact**: Automated team reminders
 
 ### 💪 Quick Wins (Optional)
@@ -763,9 +742,6 @@ fly secrets set API_SECRET=$SECRET -a status-app-projections
 
 ## Summary Timeline
 
-**URGENT - Right Now** (15 min):
-- Enable API_SECRET in Fly.io to activate existing authentication
-
 **Week 1 - Complete Core**:
 1. Real-time projections (1h)
 2. Scheduler reminders (1h)
@@ -785,17 +761,16 @@ fly secrets set API_SECRET=$SECRET -a status-app-projections
 
 ✅ **Slack Bot** - Fully functional, processes messages and mentions  
 ✅ **Event Sourcing** - Commands, events, and projections architecture complete  
-✅ **Authentication** - Implemented and tested, just needs to be enabled  
+✅ **Authentication** - ✅ **FULLY SECURED IN PRODUCTION**  
 ✅ **HTTP APIs** - Commands and Query APIs working  
 ✅ **Docker E2E Tests** - Comprehensive test coverage  
 ✅ **Health Endpoints** - Basic health checks in place  
 ✅ **Deployments** - All services deployed and running on Fly.io  
 
-**The app is 80% feature-complete!** Main remaining work:
-- Enable auth (15 min)
+**The app is 85% feature-complete!** Main remaining work:
 - Real-time updates (1h) 
 - Reminder logic (1h)
 
 ---
 
-**Last Updated**: 2025-12-07
+**Last Updated**: 2025-12-07 (Authentication enabled)
