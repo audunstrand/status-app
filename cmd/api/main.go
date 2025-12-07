@@ -34,9 +34,9 @@ func main() {
 	// Setup routes
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/teams", handleGetTeams(repo))
-	mux.HandleFunc("/api/teams/", handleGetTeam(repo))
+	mux.HandleFunc("/api/teams/{id}", handleGetTeam(repo))
 	mux.HandleFunc("/api/updates", handleGetRecentUpdates(repo))
-	mux.HandleFunc("/api/teams/", handleGetTeamUpdates(repo))
+	mux.HandleFunc("/api/teams/{id}/updates", handleGetTeamUpdates(repo))
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
