@@ -1,0 +1,1 @@
+Always verify that a deploy has gone ok, after pushing to git
