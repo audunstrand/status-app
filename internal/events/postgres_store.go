@@ -31,13 +31,22 @@ func (s *PostgresStore) Append(ctx context.Context, event *Event) error {
 		INSERT INTO events (id, type, aggregate_id, data, timestamp, metadata, version)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
+	
+	// Handle nil metadata - PostgreSQL expects NULL, not an empty json.RawMessage
+	var metadata interface{}
+	if event.Metadata == nil || len(event.Metadata) == 0 {
+		metadata = nil
+	} else {
+		metadata = event.Metadata
+	}
+	
 	_, err := s.db.ExecContext(ctx, query,
 		event.ID,
 		event.Type,
 		event.AggregateID,
 		event.Data,
 		event.Timestamp,
-		event.Metadata,
+		metadata,
 		event.Version,
 	)
 	if err != nil {
