@@ -2,6 +2,15 @@
 
 Event-sourced team status updates via Slack.
 
+## Architecture
+
+**3 services + 1 database** (consolidated from 5 services + 2 databases)
+
+- **Backend**: Commands + API + Projections (combined)
+- **Slackbot**: Slack integration
+- **Scheduler**: Reminder scheduling
+- **Database**: PostgreSQL with `events` and `projections` schemas
+
 ## Quick Start
 
 ```bash
@@ -9,18 +18,15 @@ Event-sourced team status updates via Slack.
 export API_SECRET=$(openssl rand -hex 32)
 export SLACK_BOT_TOKEN="xoxb-..."
 export SLACK_SIGNING_KEY="xapp-..."
-export EVENT_STORE_URL="postgres://localhost:5432/eventstore"
-export PROJECTION_DB_URL="postgres://localhost:5432/projections"
-export COMMANDS_URL="http://localhost:8081"
+export EVENT_STORE_URL="postgres://localhost:5432/statusapp?sslmode=disable&search_path=events"
+export PROJECTION_DB_URL="postgres://localhost:5432/statusapp?sslmode=disable&search_path=projections"
+export COMMANDS_URL="http://localhost:8080"  # Backend service
 
 # Run migrations
-migrate -path migrations -database $EVENT_STORE_URL up
-migrate -path migrations -database $PROJECTION_DB_URL up
+migrate -path migrations -database "postgres://localhost:5432/statusapp" up
 
 # Start services
-go run cmd/commands/main.go   # Port 8081
-go run cmd/api/main.go         # Port 8082
-go run cmd/projections/main.go
+go run cmd/backend/main.go    # Port 8080 (Commands + API + Projections)
 go run cmd/slackbot/main.go
 go run cmd/scheduler/main.go
 ```
@@ -28,22 +34,26 @@ go run cmd/scheduler/main.go
 ## Testing
 
 ```bash
-go test ./...                      # Unit tests
-cd tests/e2e_docker && make test   # E2E tests
+make test           # All tests
+make test-unit      # Unit tests only
+make test-e2e       # E2E tests only
+```
+
+## Build
+
+```bash
+make build          # Builds all services to bin/
 ```
 
 ## Deployment
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+Deployed to Fly.io. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+
+GitHub Actions automatically deploys on push to master.
 
 ## Status
 
-✅ **Production Ready** (85% complete)
-- Slack bot working
-- Event sourcing complete
-- Authentication required
-- All services deployed
+✅ **Phase 1 Complete**: Database consolidation (2 → 1 database)
+🚧 **Phase 2 In Progress**: Service consolidation (5 → 3 services)
 
-Remaining: Real-time projections (1h), Scheduler reminders (1h)
-
-See [TODO.md](TODO.md)
+See [CONSOLIDATION_PROMPTS.md](CONSOLIDATION_PROMPTS.md) for progress.

@@ -5,55 +5,53 @@ Event-sourced CQRS system for team status updates via Slack.
 ## Overview
 
 ```
-Slack → Slackbot → Commands → Event Store → Projections → API
-                       ↑                          ↓
-                   Scheduler                  Read Model
+Slack → Slackbot → Backend (Commands + Projections + API) → Database
+                       ↑                                      (events + projections schemas)
+                   Scheduler
 ```
 
-## Components
+## Current Architecture (After Phase 1 Consolidation)
 
-**Commands** (`cmd/commands`)
-- Receives commands from Slackbot/Scheduler
-- Validates and emits events to Event Store
-- Port 8081
+**Services**: 5 → 3 (Backend consolidation in progress)
+**Databases**: 2 → 1 ✅ Complete
 
-**Event Store** (PostgreSQL)
-- Append-only log of all events
-- Source of truth
-- Notifies subscribers via PostgreSQL NOTIFY (TODO)
+### Components
 
-**Projections** (`cmd/projections`)
-- Builds read models from events
-- Updates projection database
-- Subscribes to events (polling for now, LISTEN/NOTIFY TODO)
-
-**API** (`cmd/api`)
-- Read-only query endpoints
-- Serves data from projection database
-- Port 8082
+**Backend** (`cmd/backend`) - *Combines 3 services*
+- **Commands**: Receives commands, validates, emits events
+- **Projections**: Builds read models from events (background goroutine)
+- **API**: Read-only query endpoints
+- Port 8080
+- Endpoints: `/commands/*` and `/api/*`
 
 **Slackbot** (`cmd/slackbot`)
 - Receives Slack messages/mentions
-- Sends commands to Commands service
+- Sends commands to Backend service
 
 **Scheduler** (`cmd/scheduler`)
-- Cron job for team reminders (TODO: send reminders)
+- Cron job for team reminders
+
+**Database** (PostgreSQL `status-app-db`)
+- **events schema**: Append-only event log (source of truth)
+- **projections schema**: Read models (teams, status_updates)
 
 ## Data Flow
 
 1. User posts in Slack
 2. Slackbot receives message
-3. Slackbot sends `SubmitStatusUpdate` to Commands
-4. Commands validates and emits `StatusUpdateSubmitted` event
-5. Event stored in Event Store
-6. Projections polls events and updates read model
-7. API serves current state from read model
+3. Slackbot sends `SubmitStatusUpdate` to Backend `/commands/submit-update`
+4. Backend validates and emits `StatusUpdateSubmitted` event to `events.events`
+5. Backend Projections processor polls for new events
+6. Projections updates `projections.status_updates` table
+7. API queries can read from `projections.*` tables via Backend `/api/*`
 
 ## Authentication
 
-All service-to-service calls require `Authorization: Bearer <API_SECRET>`
+All service-to-service calls require `X-API-Key: <API_SECRET>` header
 
-## Databases
+## Migration Path
 
-- **Event Store DB**: Events table (append-only)
-- **Projection DB**: Teams, status_updates tables (read model)
+**Phase 1** ✅: Database consolidation (2 databases → 1 database)
+**Phase 2** 🚧: Service consolidation (5 services → 3 services)
+- Current: Commands, API, Projections, Slackbot, Scheduler
+- Target: Backend, Slackbot, Scheduler
