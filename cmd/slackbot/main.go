@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,11 +15,25 @@ import (
 	"github.com/yourusername/status-app/internal/config"
 )
 
+type SlackBot struct {
+	cfg    *config.Config
+	client *http.Client
+}
+
+func NewSlackBot(cfg *config.Config) *SlackBot {
+	return &SlackBot{
+		cfg:    cfg,
+		client: &http.Client{},
+	}
+}
+
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+
+	bot := NewSlackBot(cfg)
 
 	api := slack.New(
 		cfg.SlackBotToken,
@@ -36,7 +53,7 @@ func main() {
 				}
 
 				client.Ack(*evt.Request)
-				handleEvent(eventsAPIEvent)
+				bot.handleEvent(eventsAPIEvent)
 
 			case socketmode.EventTypeSlashCommand:
 				// Handle slash commands
@@ -65,7 +82,7 @@ func main() {
 	log.Println("Shutting down...")
 }
 
-func handleEvent(event slackevents.EventsAPIEvent) {
+func (bot *SlackBot) handleEvent(event slackevents.EventsAPIEvent) {
 	switch event.Type {
 	case slackevents.CallbackEvent:
 		innerEvent := event.InnerEvent
@@ -73,6 +90,42 @@ func handleEvent(event slackevents.EventsAPIEvent) {
 		case *slackevents.MessageEvent:
 			log.Printf("Message: %v", ev.Text)
 			// TODO: Parse message and send command to command service
+			// bot.sendStatusUpdate(ev.Channel, ev.Text, ev.User)
 		}
 	}
+}
+
+func (bot *SlackBot) sendStatusUpdate(teamID, content, author string) error {
+	payload := map[string]string{
+		"team_id": teamID,
+		"content": content,
+		"author":  author,
+	}
+	
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	
+	req, err := http.NewRequest("POST", bot.cfg.CommandsURL+"/commands/submit-update", bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+	
+	req.Header.Set("Content-Type", "application/json")
+	if bot.cfg.APISecret != "" {
+		req.Header.Set("Authorization", "Bearer "+bot.cfg.APISecret)
+	}
+	
+	resp, err := bot.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusCreated {
+		log.Printf("Failed to submit update: status %d", resp.StatusCode)
+	}
+	
+	return nil
 }

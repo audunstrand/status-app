@@ -12,6 +12,7 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+	"github.com/yourusername/status-app/internal/auth"
 	"github.com/yourusername/status-app/internal/config"
 	"github.com/yourusername/status-app/internal/projections"
 )
@@ -33,10 +34,32 @@ func main() {
 
 	// Setup routes
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/teams", handleGetTeams(repo))
-	mux.HandleFunc("/api/teams/{id}", handleGetTeam(repo))
-	mux.HandleFunc("/api/updates", handleGetRecentUpdates(repo))
-	mux.HandleFunc("/api/teams/{id}/updates", handleGetTeamUpdates(repo))
+	
+	// Health check endpoint (no auth required)
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "healthy",
+			"service": "api",
+		})
+	})
+	
+	// Protected API endpoints
+	if cfg.APISecret != "" {
+		log.Println("API authentication enabled")
+		protectedMux := http.NewServeMux()
+		protectedMux.HandleFunc("/api/teams", handleGetTeams(repo))
+		protectedMux.HandleFunc("/api/teams/{id}", handleGetTeam(repo))
+		protectedMux.HandleFunc("/api/updates", handleGetRecentUpdates(repo))
+		protectedMux.HandleFunc("/api/teams/{id}/updates", handleGetTeamUpdates(repo))
+		mux.Handle("/api/", auth.RequireAPIKey(cfg.APISecret)(protectedMux))
+	} else {
+		log.Println("WARNING: API authentication disabled - set API_SECRET environment variable")
+		mux.HandleFunc("/api/teams", handleGetTeams(repo))
+		mux.HandleFunc("/api/teams/{id}", handleGetTeam(repo))
+		mux.HandleFunc("/api/updates", handleGetRecentUpdates(repo))
+		mux.HandleFunc("/api/teams/{id}/updates", handleGetTeamUpdates(repo))
+	}
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,

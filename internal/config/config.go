@@ -11,6 +11,8 @@ type Config struct {
 	Port             string
 	EventStoreURL    string
 	ProjectionDBURL  string
+	APISecret        string
+	CommandsURL      string
 }
 
 func Load() (*Config, error) {
@@ -21,6 +23,8 @@ func Load() (*Config, error) {
 		Port:            getEnv("PORT", "8080"),
 		EventStoreURL:   getEnv("EVENT_STORE_URL", "postgres://localhost:5432/statusapp_events?sslmode=disable"),
 		ProjectionDBURL: getEnv("PROJECTION_DB_URL", "postgres://localhost:5432/statusapp_projections?sslmode=disable"),
+		APISecret:       getEnv("API_SECRET", ""),
+		CommandsURL:     getEnv("COMMANDS_URL", "http://localhost:8081"),
 	}
 
 	return cfg, nil

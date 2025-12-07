@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/yourusername/status-app/internal/auth"
 	"github.com/yourusername/status-app/internal/commands"
 	"github.com/yourusername/status-app/internal/config"
 	"github.com/yourusername/status-app/internal/events"
@@ -72,8 +73,28 @@ func main() {
 
 	// Start HTTP server for receiving commands
 	mux := http.NewServeMux()
-	mux.HandleFunc("/commands/submit-update", handleSubmitUpdate(cmdHandler))
-	mux.HandleFunc("/commands/register-team", handleRegisterTeam(cmdHandler))
+	
+	// Health check endpoint (no auth required)
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "healthy",
+			"service": "commands",
+		})
+	})
+	
+	// Protected command endpoints
+	if cfg.APISecret != "" {
+		log.Println("API authentication enabled")
+		protectedMux := http.NewServeMux()
+		protectedMux.HandleFunc("/commands/submit-update", handleSubmitUpdate(cmdHandler))
+		protectedMux.HandleFunc("/commands/register-team", handleRegisterTeam(cmdHandler))
+		mux.Handle("/commands/", auth.RequireAPIKey(cfg.APISecret)(protectedMux))
+	} else {
+		log.Println("WARNING: API authentication disabled - set API_SECRET environment variable")
+		mux.HandleFunc("/commands/submit-update", handleSubmitUpdate(cmdHandler))
+		mux.HandleFunc("/commands/register-team", handleRegisterTeam(cmdHandler))
+	}
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
