@@ -247,7 +247,7 @@ Help me test the new backend service locally:
 
 ---
 
-### Prompt 2.3: Create Backend Fly Config
+### Prompt 2.3: Create Backend Fly Config ✅ DONE
 
 ```
 Create fly.backend.toml for the new backend service with:
@@ -259,15 +259,33 @@ Create fly.backend.toml for the new backend service with:
 Then show me how to deploy it to Fly.io with the right secrets.
 ```
 
+**Completed**:
+- Created fly.backend.toml ✅
+- Deployed to Fly.io as status-app-backend ✅
+- Attached status-app-db ✅
+- Set secrets: API_SECRET, EVENT_STORE_URL, PROJECTION_DB_URL ✅
+- Service healthy and running ✅
+- Projections running in background ✅
+
 ---
 
-### Prompt 2.4: Switch Slackbot to Backend
+### Prompt 2.4: Switch Slackbot to Backend ✅ DONE
 
 ```
 Update Slackbot to use the new backend service:
 1. Show me how to update COMMANDS_URL to point to status-app-backend
 2. How to verify it's working by testing a Slack message
 3. How to roll back if there are issues
+```
+
+**Completed**:
+- Updated COMMANDS_URL=https://status-app-backend.fly.dev ✅
+- Slackbot restarted and connected to Slack ✅
+- Now sends commands to backend instead of old commands service ✅
+
+**Rollback if needed**: 
+```bash
+flyctl secrets set COMMANDS_URL="https://status-app-commands.fly.dev" -a status-app-slackbot
 ```
 
 ---
