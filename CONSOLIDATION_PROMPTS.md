@@ -61,12 +61,17 @@ git push
 
 ---
 
-### Prompt 1.4: Run Migrations on New Database
+### Prompt 1.4: Run Migrations on New Database ✅ DONE
 
 ```
 Show me the commands to run the migrations on the new status-app-db database.
 Then help me verify the tables exist in the correct schemas.
 ```
+
+**Completed**: 
+- events.events table created with all indexes
+- projections.teams and projections.status_updates tables created with all indexes
+- Verified with `\dt events.*` and `\dt projections.*`
 
 ---
 
