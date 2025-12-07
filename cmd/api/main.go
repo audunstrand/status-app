@@ -45,21 +45,17 @@ func main() {
 	})
 	
 	// Protected API endpoints
-	if cfg.APISecret != "" {
-		log.Println("API authentication enabled")
-		protectedMux := http.NewServeMux()
-		protectedMux.HandleFunc("/api/teams", handleGetTeams(repo))
-		protectedMux.HandleFunc("/api/teams/{id}", handleGetTeam(repo))
-		protectedMux.HandleFunc("/api/updates", handleGetRecentUpdates(repo))
-		protectedMux.HandleFunc("/api/teams/{id}/updates", handleGetTeamUpdates(repo))
-		mux.Handle("/api/", auth.RequireAPIKey(cfg.APISecret)(protectedMux))
-	} else {
-		log.Println("WARNING: API authentication disabled - set API_SECRET environment variable")
-		mux.HandleFunc("/api/teams", handleGetTeams(repo))
-		mux.HandleFunc("/api/teams/{id}", handleGetTeam(repo))
-		mux.HandleFunc("/api/updates", handleGetRecentUpdates(repo))
-		mux.HandleFunc("/api/teams/{id}/updates", handleGetTeamUpdates(repo))
+	if cfg.APISecret == "" {
+		log.Fatal("API_SECRET environment variable is required")
 	}
+	
+	log.Println("API authentication enabled")
+	protectedMux := http.NewServeMux()
+	protectedMux.HandleFunc("/api/teams", handleGetTeams(repo))
+	protectedMux.HandleFunc("/api/teams/{id}", handleGetTeam(repo))
+	protectedMux.HandleFunc("/api/updates", handleGetRecentUpdates(repo))
+	protectedMux.HandleFunc("/api/teams/{id}/updates", handleGetTeamUpdates(repo))
+	mux.Handle("/api/", auth.RequireAPIKey(cfg.APISecret)(protectedMux))
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,

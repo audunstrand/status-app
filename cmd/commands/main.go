@@ -84,17 +84,15 @@ func main() {
 	})
 	
 	// Protected command endpoints
-	if cfg.APISecret != "" {
-		log.Println("API authentication enabled")
-		protectedMux := http.NewServeMux()
-		protectedMux.HandleFunc("/commands/submit-update", handleSubmitUpdate(cmdHandler))
-		protectedMux.HandleFunc("/commands/register-team", handleRegisterTeam(cmdHandler))
-		mux.Handle("/commands/", auth.RequireAPIKey(cfg.APISecret)(protectedMux))
-	} else {
-		log.Println("WARNING: API authentication disabled - set API_SECRET environment variable")
-		mux.HandleFunc("/commands/submit-update", handleSubmitUpdate(cmdHandler))
-		mux.HandleFunc("/commands/register-team", handleRegisterTeam(cmdHandler))
+	if cfg.APISecret == "" {
+		log.Fatal("API_SECRET environment variable is required")
 	}
+	
+	log.Println("API authentication enabled")
+	protectedMux := http.NewServeMux()
+	protectedMux.HandleFunc("/commands/submit-update", handleSubmitUpdate(cmdHandler))
+	protectedMux.HandleFunc("/commands/register-team", handleRegisterTeam(cmdHandler))
+	mux.Handle("/commands/", auth.RequireAPIKey(cfg.APISecret)(protectedMux))
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,

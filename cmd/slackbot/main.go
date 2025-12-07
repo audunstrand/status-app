@@ -145,9 +145,7 @@ func (bot *SlackBot) sendStatusUpdate(teamID, content, author string) error {
 	}
 	
 	req.Header.Set("Content-Type", "application/json")
-	if bot.cfg.APISecret != "" {
-		req.Header.Set("Authorization", "Bearer "+bot.cfg.APISecret)
-	}
+	req.Header.Set("Authorization", "Bearer "+bot.cfg.APISecret)
 	
 	resp, err := bot.client.Do(req)
 	if err != nil {
