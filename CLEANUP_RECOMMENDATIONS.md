@@ -1,8 +1,20 @@
 # Code Cleanup Recommendations
 
+## ✅ Completed Cleanup
+
+### Removed Obsolete Service Directories
+- ✅ Removed `cmd/commands` - Replaced by cmd/backend
+- ✅ Removed `cmd/api` - Replaced by cmd/backend
+- ✅ Removed `cmd/projections` - Replaced by cmd/backend
+- ✅ Updated Makefile to build only 3 services (backend, slackbot, scheduler)
+
+### Updated Documentation
+- ✅ docs/ARCHITECTURE.md - Shows new 3-service + 1-database architecture
+- ✅ README.md - Quick start for consolidated services
+
 ## Files to Update
 
-### 1. Documentation (Outdated)
+### 1. Documentation (Still Needs Update)
 
 **docs/ARCHITECTURE.md** - Update for consolidated architecture:
 - ❌ Mentions 5 separate services
