@@ -7,6 +7,13 @@
 bin/
 dist/
 
+# Compiled service binaries (built by Makefile)
+/api
+/commands
+/projections
+/scheduler
+/slackbot
+
 # Test binary
 *.test
 
