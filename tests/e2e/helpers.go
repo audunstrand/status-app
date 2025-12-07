@@ -21,15 +21,22 @@ func newTestEventStore(db *sql.DB) *testEventStore {
 func (s *testEventStore) Append(ctx context.Context, event *events.Event) error {
 	query := `
 		INSERT INTO events (id, type, aggregate_id, data, timestamp, metadata, version, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1, $2, $3, $4::jsonb, $5, $6::jsonb, $7, $8)
 	`
+	
+	// Convert metadata to proper format
+	var metadata interface{}
+	if len(event.Metadata) > 0 {
+		metadata = string(event.Metadata)
+	}
+	
 	_, err := s.db.ExecContext(ctx, query,
 		event.ID,
 		event.Type,
 		event.AggregateID,
-		event.Data,
+		string(event.Data), // Convert []byte to string for JSONB
 		event.Timestamp,
-		event.Metadata,
+		metadata,
 		event.Version,
 		time.Now(),
 	)
