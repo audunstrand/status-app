@@ -332,34 +332,160 @@
 
 ---
 
-### 10. Add Authentication and Authorization
-**Priority**: Low  
+### 10. Add Service-to-Service Authentication
+**Priority**: High  
 **Status**: Not Started
 
 **Current State**:
-- No authentication on any endpoint
-- Anyone can submit updates
-- Anyone can query all data
+- **CRITICAL SECURITY ISSUE**: All internal APIs are publicly accessible
+- Anyone can submit commands to `/commands/submit-update`
+- Anyone can query `/api/teams` and see all data
+- No authentication between services (slackbot → commands, scheduler → commands)
+
+**Security Risks**:
+- External attackers can submit fake status updates
+- Data leakage of team information
+- Potential abuse/spam of the system
+- No audit trail of who accessed what
 
 **Implementation Plan**:
 
-1. **Add API key authentication** (~1 hour)
-   - Generate API keys for teams
-   - Validate on each request
-   - Store in database
+**Option A: Shared Secret API Keys (Recommended - Simple & Effective)**
 
-2. **Add team-based authorization** (~1 hour)
-   - Users can only update their team
-   - Users can only view their team data
-   - Admin role for cross-team access
+1. **Add shared secret environment variable** (~15 min)
+   ```go
+   // In config.go
+   type Config struct {
+       // ...existing fields
+       APISecret string `env:"API_SECRET,required"`
+   }
+   ```
+   - Generate random secret: `openssl rand -hex 32`
+   - Set same secret in all services via Fly.io secrets
+
+2. **Add authentication middleware** (~30 min)
+   ```go
+   // internal/auth/middleware.go
+   func RequireAPIKey(secret string) func(http.Handler) http.Handler {
+       return func(next http.Handler) http.Handler {
+           return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+               authHeader := r.Header.Get("Authorization")
+               if authHeader != "Bearer "+secret {
+                   http.Error(w, "Unauthorized", http.StatusUnauthorized)
+                   return
+               }
+               next.ServeHTTP(w, r)
+           })
+       }
+   }
+   ```
+
+3. **Apply middleware to Commands API** (~15 min)
+   ```go
+   // cmd/commands/main.go
+   mux.Handle("/commands/", RequireAPIKey(cfg.APISecret)(
+       http.HandlerFunc(handleSubmitUpdate(cmdHandler))))
+   ```
+
+4. **Apply middleware to API service** (~15 min)
+   - Protect sensitive endpoints
+   - Maybe keep `/health` public for Fly.io
+
+5. **Update clients to send API key** (~30 min)
+   ```go
+   // Slackbot, Scheduler send requests with header
+   req.Header.Set("Authorization", "Bearer "+cfg.APISecret)
+   ```
+
+6. **Set Fly.io secrets** (~15 min)
+   ```bash
+   fly secrets set API_SECRET=<generated-secret> -a status-app-commands
+   fly secrets set API_SECRET=<generated-secret> -a status-app-api
+   fly secrets set API_SECRET=<generated-secret> -a status-app-slackbot
+   fly secrets set API_SECRET=<generated-secret> -a status-app-scheduler
+   ```
 
 **Estimated Time**: 2 hours
+
+**Option B: JWT Tokens (More Complex, Better for Multi-tenant)**
+
+1. **Generate JWT signing key** (~10 min)
+2. **Issue service tokens** (~30 min)
+   - Each service gets a token with claims (service name, permissions)
+3. **Validate JWT on each request** (~45 min)
+4. **Token rotation strategy** (~30 min)
+
+**Estimated Time**: 2 hours
+
+**Option C: mTLS (Most Secure, Complex)**
+
+1. **Generate CA and certificates** (~1 hour)
+2. **Configure Fly.io private network** (~30 min)
+3. **Update all HTTP clients** (~1 hour)
+
+**Estimated Time**: 2.5 hours
+
+**Recommended Approach**: **Option A (Shared Secret)**
+- Simplest to implement
+- Adequate security for internal services
+- Easy to rotate if compromised
+- Works well with Fly.io secrets management
+
+---
+
+### 11. Add User-Facing Authentication and Authorization
+**Priority**: Medium  
+**Status**: Not Started
+
+**Current State** (after #10):
+- Services are secured from external access
+- But no user identity/authorization
+- Can't differentiate between team members
+
+**Features Needed**:
+- Users should only submit updates for their team
+- Users should only see their team's data
+- Admin users can see all teams
+
+**Implementation Plan**:
+
+1. **Add API key per team** (~1 hour)
+   - Generate unique API key for each team
+   - Store in teams table: `api_key VARCHAR(64)`
+   - Return key when team registers
+
+2. **Add team-based authorization middleware** (~1 hour)
+   ```go
+   func RequireTeamAuth() http.HandlerFunc {
+       return func(w http.ResponseWriter, r *http.Request) {
+           apiKey := r.Header.Get("X-Team-API-Key")
+           team, err := validateTeamAPIKey(apiKey)
+           if err != nil {
+               http.Error(w, "Unauthorized", 401)
+               return
+           }
+           // Store team in context
+           ctx := context.WithValue(r.Context(), "team", team)
+           next.ServeHTTP(w, r.WithContext(ctx))
+       }
+   }
+   ```
+
+3. **Enforce team scope on commands** (~30 min)
+   - Check that teamID in request matches authenticated team
+   - Prevent cross-team submissions
+
+4. **Add team filtering to queries** (~30 min)
+   - API only returns data for authenticated team
+   - Or all data if admin key
+
+**Estimated Time**: 3 hours
 
 ---
 
 ## 🔧 Technical Debt
 
-### 11. Add Integration Tests
+### 12. Add Integration Tests
 **Priority**: Medium  
 **Status**: Not Started
 
@@ -381,7 +507,7 @@
 
 ---
 
-### 12. Improve Error Messages and Documentation
+### 13. Improve Error Messages and Documentation
 **Priority**: Low  
 **Status**: Minimal
 
@@ -400,7 +526,7 @@
 
 ---
 
-### 13. Database Migration Management
+### 14. Database Migration Management
 **Priority**: Medium  
 **Status**: Not Started
 
@@ -426,21 +552,25 @@
 1. ✅ Real-time projections (1 hour)
 2. ✅ Slack message handling (1.5 hours)
 3. ✅ Scheduler reminders (1.5 hours)
+10. ✅ **Service-to-service authentication (2 hours)** ⚠️ SECURITY
 
-**Total Critical Path**: ~4 hours
+**Total Critical Path**: ~6 hours
 
 ### Should Do (Better UX):
 4. Error handling (1 hour)
 5. Health checks (45 min)
 6. Logging (2.5 hours)
 
-**Total Important**: ~4 hours
+**Total Important**: ~4.25 hours
 
 ### Nice to Have (Features):
-7-10. Various features (8.5 hours)
+7-9. Dashboard, slash commands, etc (4 hours)
+11. User-facing auth (3 hours)
+
+**Total Features**: ~7 hours
 
 ### Tech Debt:
-11-13. Testing, docs, migrations (6.5 hours)
+12-14. Testing, docs, migrations (6.5 hours)
 
 ---
 
@@ -448,10 +578,29 @@
 
 **Recommended Priority Order**:
 
-1. **Week 1**: Implement items #1-3 (critical functionality)
-2. **Week 2**: Implement items #4-5 (stability)
-3. **Week 3**: Implement item #6 (observability)
-4. **Week 4+**: Pick features based on user feedback
+1. **Day 1 (Critical)**: 
+   - Item #10: Service-to-service authentication (2 hours) ⚠️ **DO THIS FIRST**
+   - Item #1: Real-time projections (1 hour)
+   
+2. **Day 2 (Core Features)**:
+   - Item #2: Slack message handling (1.5 hours)
+   - Item #3: Scheduler reminders (1.5 hours)
+
+3. **Week 1**: 
+   - Item #4-5: Error handling, health checks (1.75 hours)
+   
+4. **Week 2**: 
+   - Item #6: Logging and observability (2.5 hours)
+   - Item #11: User-facing auth (3 hours)
+
+5. **Week 3+**: Pick features based on user feedback
+
+**SECURITY WARNING**: Your APIs are currently publicly accessible! Anyone can:
+- Submit fake status updates
+- Query all team data
+- Abuse the system
+
+**Strongly recommend implementing #10 before deploying to production!**
 
 ---
 
