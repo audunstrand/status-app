@@ -412,7 +412,7 @@ git push
 
 ## Phase 3: Cleanup
 
-### Prompt 3.1: Update Documentation
+### Prompt 3.1: Update Documentation ✅ DONE
 
 ```
 Update the following files to reflect the new 3-service architecture:
@@ -424,9 +424,19 @@ Update the following files to reflect the new 3-service architecture:
 Show me the changes needed for each file.
 ```
 
+**Completed**:
+- ✅ README.md - Updated earlier in cleanup (3 services architecture)
+- ✅ docs/ARCHITECTURE.md - Updated earlier (shows consolidated architecture)
+- ✅ docs/DEPLOYMENT.md - Updated with:
+  - 3 services deployment instructions
+  - Correct fly config files
+  - Secrets for each service
+  - Monitoring commands
+- ✅ TODO.md - Updated earlier (added URL refactoring, test coverage tasks)
+
 ---
 
-### Prompt 3.2: Update CI/CD
+### Prompt 3.2: Update CI/CD ✅ DONE
 
 ```
 Update .github/workflows/ci.yml to:
@@ -435,6 +445,17 @@ Update .github/workflows/ci.yml to:
 
 Show me the complete updated workflow file.
 ```
+
+**Completed**:
+- ✅ Updated .github/workflows/deploy.yml
+- ✅ Removed old services from matrix: commands, api, projections
+- ✅ Added new services: backend, slackbot, scheduler
+- ✅ Updated config file references:
+  - backend: fly.backend.toml
+  - slackbot: fly.slackbot.toml
+  - scheduler: fly.scheduler.toml
+
+**GitHub Actions now deploys 3 services automatically on push to master.**
 
 ---
 

@@ -41,12 +41,8 @@ jobs:
     strategy:
       matrix:
         app:
-          - name: commands
-            config: fly.toml
-          - name: api
-            config: fly.api.toml
-          - name: projections
-            config: fly.projections.toml
+          - name: backend
+            config: fly.backend.toml
           - name: slackbot
             config: fly.slackbot.toml
           - name: scheduler
