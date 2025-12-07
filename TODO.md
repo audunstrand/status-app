@@ -7,10 +7,50 @@
 - Slack bot (processes messages and mentions)
 - Event sourcing architecture
 - All services deployed to Fly.io
+- **Database consolidation** (2 databases → 1 database)
+- **Service consolidation** (5 services → 3 services)
 
 ## 🚧 To Implement
 
-### 1. Migration Service (30m)
+### 1. URL Structure Refactoring (1h)
+
+**Current**: URLs expose internal architecture
+- `/commands/submit-update` - reveals CQRS command handling
+- `/commands/register-team` - reveals implementation detail
+- `/api/teams` - reveals separate API layer
+- `/api/updates` - reveals query side
+
+**Goal**: URLs should reflect external domain model, not internal architecture
+
+**Proposed structure**:
+```
+POST   /teams              - Register a new team
+PUT    /teams/{id}         - Update team
+POST   /teams/{id}/updates - Submit status update
+GET    /teams              - List all teams
+GET    /teams/{id}         - Get team details
+GET    /teams/{id}/updates - Get team's updates
+GET    /updates            - Get recent updates
+```
+
+**Benefits**:
+- RESTful resource-based URLs
+- Hides internal CQRS/event sourcing implementation
+- Better API discoverability
+- Standard HTTP verbs for operations
+- Can change internal architecture without breaking API
+
+**Implementation**:
+- Update `cmd/backend/main.go` endpoint routing
+- Keep internal command/query handlers unchanged
+- Update Slackbot to use new URLs
+- Add URL versioning: `/v1/teams` for future compatibility
+
+**Estimated time**: 1 hour (routing changes + tests)
+
+---
+
+### 2. Migration Service (30m)
 
 **Current**: Migrations run manually via psql  
 **Goal**: Automated migration runner as Fly.io service
@@ -28,7 +68,7 @@
 
 ---
 
-### 2. Real-Time Projections (1h)
+### 3. Real-Time Projections (1h)
 
 **Current**: Projections poll every few seconds  
 **Goal**: Update immediately when events are written
@@ -68,7 +108,7 @@ func (s *PostgresStore) Subscribe(ctx context.Context, eventTypes []string) (<-c
 
 ---
 
-### 3. Scheduler Reminders (1h)
+### 4. Scheduler Reminders (1h)
 
 **Current**: Scheduler runs but doesn't send reminders  
 **Goal**: Send Slack messages on schedule
@@ -110,7 +150,7 @@ func sendSlackReminder(channelID, teamName string) error {
 
 ---
 
-### 4. Minor Fixes (30m)
+### 5. Minor Fixes (30m)
 
 **Fix ignored NOTIFY error**:
 ```go
