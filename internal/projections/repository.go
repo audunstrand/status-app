@@ -15,14 +15,12 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
-func (r *Repository) GetTeam(ctx context.Context, teamID string) (*Team, error) {
-	query := `
-		SELECT team_id, name, slack_channel, poll_schedule, created_at, updated_at
-		FROM teams
-		WHERE team_id = $1
-	`
+// scanTeam scans a Team from a row scanner
+func (r *Repository) scanTeam(scanner interface {
+	Scan(...interface{}) error
+}) (*Team, error) {
 	var team Team
-	err := r.db.QueryRowContext(ctx, query, teamID).Scan(
+	err := scanner.Scan(
 		&team.TeamID,
 		&team.Name,
 		&team.SlackChannel,
@@ -30,10 +28,32 @@ func (r *Repository) GetTeam(ctx context.Context, teamID string) (*Team, error) 
 		&team.CreatedAt,
 		&team.UpdatedAt,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return &team, nil
+	return &team, err
+}
+
+// scanStatusUpdate scans a StatusUpdate from a row scanner
+func (r *Repository) scanStatusUpdate(scanner interface {
+	Scan(...interface{}) error
+}) (*StatusUpdate, error) {
+	var update StatusUpdate
+	err := scanner.Scan(
+		&update.UpdateID,
+		&update.TeamID,
+		&update.Content,
+		&update.Author,
+		&update.SlackUser,
+		&update.CreatedAt,
+	)
+	return &update, err
+}
+
+func (r *Repository) GetTeam(ctx context.Context, teamID string) (*Team, error) {
+	query := `
+		SELECT team_id, name, slack_channel, poll_schedule, created_at, updated_at
+		FROM teams
+		WHERE team_id = $1
+	`
+	return r.scanTeam(r.db.QueryRowContext(ctx, query, teamID))
 }
 
 func (r *Repository) GetAllTeams(ctx context.Context) ([]*Team, error) {
@@ -50,18 +70,11 @@ func (r *Repository) GetAllTeams(ctx context.Context) ([]*Team, error) {
 
 	var teams []*Team
 	for rows.Next() {
-		var team Team
-		if err := rows.Scan(
-			&team.TeamID,
-			&team.Name,
-			&team.SlackChannel,
-			&team.PollSchedule,
-			&team.CreatedAt,
-			&team.UpdatedAt,
-		); err != nil {
+		team, err := r.scanTeam(rows)
+		if err != nil {
 			return nil, err
 		}
-		teams = append(teams, &team)
+		teams = append(teams, team)
 	}
 	return teams, rows.Err()
 }
@@ -82,18 +95,11 @@ func (r *Repository) GetTeamUpdates(ctx context.Context, teamID string, limit in
 
 	var updates []*StatusUpdate
 	for rows.Next() {
-		var update StatusUpdate
-		if err := rows.Scan(
-			&update.UpdateID,
-			&update.TeamID,
-			&update.Content,
-			&update.Author,
-			&update.SlackUser,
-			&update.CreatedAt,
-		); err != nil {
+		update, err := r.scanStatusUpdate(rows)
+		if err != nil {
 			return nil, err
 		}
-		updates = append(updates, &update)
+		updates = append(updates, update)
 	}
 	return updates, rows.Err()
 }
@@ -113,18 +119,11 @@ func (r *Repository) GetRecentUpdates(ctx context.Context, limit int) ([]*Status
 
 	var updates []*StatusUpdate
 	for rows.Next() {
-		var update StatusUpdate
-		if err := rows.Scan(
-			&update.UpdateID,
-			&update.TeamID,
-			&update.Content,
-			&update.Author,
-			&update.SlackUser,
-			&update.CreatedAt,
-		); err != nil {
+		update, err := r.scanStatusUpdate(rows)
+		if err != nil {
 			return nil, err
 		}
-		updates = append(updates, &update)
+		updates = append(updates, update)
 	}
 	return updates, rows.Err()
 }

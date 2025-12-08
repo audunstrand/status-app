@@ -38,18 +38,13 @@ func (h *Handler) Handle(ctx context.Context, cmd Command) error {
 	}
 }
 
-func (h *Handler) handleSubmitStatusUpdate(ctx context.Context, cmd SubmitStatusUpdate) error {
-	updateID := uuid.New().String()
-
-	data := events.StatusUpdateSubmittedData{
-		UpdateID:  updateID,
-		TeamID:    cmd.TeamID,
-		Content:   cmd.Content,
-		Author:    cmd.Author,
-		SlackUser: cmd.SlackUser,
-		Timestamp: cmd.Timestamp,
-	}
-
+// createAndAppendEvent is a helper that marshals data and creates an event
+func (h *Handler) createAndAppendEvent(
+	ctx context.Context,
+	eventType string,
+	aggregateID string,
+	data interface{},
+) error {
 	dataJSON, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("failed to marshal event data: %w", err)
@@ -57,14 +52,27 @@ func (h *Handler) handleSubmitStatusUpdate(ctx context.Context, cmd SubmitStatus
 
 	event := &events.Event{
 		ID:          uuid.New().String(),
-		Type:        events.StatusUpdateSubmitted,
-		AggregateID: cmd.TeamID,
+		Type:        eventType,
+		AggregateID: aggregateID,
 		Data:        dataJSON,
 		Timestamp:   time.Now(),
 		Version:     1,
 	}
 
 	return h.eventStore.Append(ctx, event)
+}
+
+func (h *Handler) handleSubmitStatusUpdate(ctx context.Context, cmd SubmitStatusUpdate) error {
+	data := events.StatusUpdateSubmittedData{
+		UpdateID:  uuid.New().String(),
+		TeamID:    cmd.TeamID,
+		Content:   cmd.Content,
+		Author:    cmd.Author,
+		SlackUser: cmd.SlackUser,
+		Timestamp: cmd.Timestamp,
+	}
+
+	return h.createAndAppendEvent(ctx, events.StatusUpdateSubmitted, cmd.TeamID, data)
 }
 
 func (h *Handler) handleRegisterTeam(ctx context.Context, cmd RegisterTeam) error {
@@ -77,21 +85,7 @@ func (h *Handler) handleRegisterTeam(ctx context.Context, cmd RegisterTeam) erro
 		PollSchedule: cmd.PollSchedule,
 	}
 
-	dataJSON, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal event data: %w", err)
-	}
-
-	event := &events.Event{
-		ID:          uuid.New().String(),
-		Type:        events.TeamRegistered,
-		AggregateID: teamID,
-		Data:        dataJSON,
-		Timestamp:   time.Now(),
-		Version:     1,
-	}
-
-	return h.eventStore.Append(ctx, event)
+	return h.createAndAppendEvent(ctx, events.TeamRegistered, teamID, data)
 }
 
 func (h *Handler) handleUpdateTeam(ctx context.Context, cmd UpdateTeam) error {
@@ -102,73 +96,27 @@ func (h *Handler) handleUpdateTeam(ctx context.Context, cmd UpdateTeam) error {
 		PollSchedule: cmd.PollSchedule,
 	}
 
-	dataJSON, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal event data: %w", err)
-	}
-
-	event := &events.Event{
-		ID:          uuid.New().String(),
-		Type:        events.TeamUpdated,
-		AggregateID: cmd.TeamID,
-		Data:        dataJSON,
-		Timestamp:   time.Now(),
-		Version:     1,
-	}
-
-	return h.eventStore.Append(ctx, event)
+	return h.createAndAppendEvent(ctx, events.TeamUpdated, cmd.TeamID, data)
 }
 
 func (h *Handler) handleSchedulePoll(ctx context.Context, cmd SchedulePoll) error {
-	pollID := uuid.New().String()
-
 	data := events.PollScheduledData{
-		PollID:    pollID,
+		PollID:    uuid.New().String(),
 		TeamID:    cmd.TeamID,
 		DueDate:   cmd.DueDate,
 		Frequency: cmd.Frequency,
 	}
 
-	dataJSON, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal event data: %w", err)
-	}
-
-	event := &events.Event{
-		ID:          uuid.New().String(),
-		Type:        events.PollScheduled,
-		AggregateID: cmd.TeamID,
-		Data:        dataJSON,
-		Timestamp:   time.Now(),
-		Version:     1,
-	}
-
-	return h.eventStore.Append(ctx, event)
+	return h.createAndAppendEvent(ctx, events.PollScheduled, cmd.TeamID, data)
 }
 
 func (h *Handler) handleSendReminder(ctx context.Context, cmd SendReminder) error {
-	reminderID := uuid.New().String()
-
 	data := events.ReminderSentData{
-		ReminderID:   reminderID,
+		ReminderID:   uuid.New().String(),
 		TeamID:       cmd.TeamID,
 		SlackChannel: cmd.SlackChannel,
 		SentAt:       time.Now(),
 	}
 
-	dataJSON, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal event data: %w", err)
-	}
-
-	event := &events.Event{
-		ID:          uuid.New().String(),
-		Type:        events.ReminderSent,
-		AggregateID: cmd.TeamID,
-		Data:        dataJSON,
-		Timestamp:   time.Now(),
-		Version:     1,
-	}
-
-	return h.eventStore.Append(ctx, event)
+	return h.createAndAppendEvent(ctx, events.ReminderSent, cmd.TeamID, data)
 }

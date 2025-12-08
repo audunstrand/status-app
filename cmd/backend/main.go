@@ -156,22 +156,29 @@ func main() {
 	server.Shutdown(shutdownCtx)
 }
 
+// jsonError sends a JSON error response
+func jsonError(w http.ResponseWriter, message string, code int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
 // Command handlers
 func handleSubmitUpdate(handler *commands.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
 		var req SubmitStatusUpdateRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid request body", http.StatusBadRequest)
+			jsonError(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
 
 		if err := req.Validate(); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -184,7 +191,7 @@ func handleSubmitUpdate(handler *commands.Handler) http.HandlerFunc {
 		}
 
 		if err := handler.Handle(r.Context(), cmd); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			jsonError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -199,18 +206,18 @@ func handleSubmitUpdate(handler *commands.Handler) http.HandlerFunc {
 func handleRegisterTeam(handler *commands.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
 		var req RegisterTeamRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid request body", http.StatusBadRequest)
+			jsonError(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
 
 		if err := req.Validate(); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -221,7 +228,7 @@ func handleRegisterTeam(handler *commands.Handler) http.HandlerFunc {
 		}
 
 		if err := handler.Handle(r.Context(), cmd); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			jsonError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -238,7 +245,7 @@ func handleGetTeams(repo *projections.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		teams, err := repo.GetAllTeams(r.Context())
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			jsonError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -250,17 +257,17 @@ func handleGetTeam(repo *projections.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		teamID := r.PathValue("id")
 		if teamID == "" {
-			http.Error(w, "team ID is required", http.StatusBadRequest)
+			jsonError(w, "team ID is required", http.StatusBadRequest)
 			return
 		}
 
 		team, err := repo.GetTeam(r.Context(), teamID)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				http.Error(w, "team not found", http.StatusNotFound)
+				jsonError(w, "team not found", http.StatusNotFound)
 				return
 			}
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			jsonError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -273,7 +280,7 @@ func handleGetRecentUpdates(repo *projections.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		updates, err := repo.GetRecentUpdates(r.Context(), 50)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			jsonError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -285,13 +292,13 @@ func handleGetTeamUpdates(repo *projections.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		teamID := r.PathValue("id")
 		if teamID == "" {
-			http.Error(w, "team ID is required", http.StatusBadRequest)
+			jsonError(w, "team ID is required", http.StatusBadRequest)
 			return
 		}
 
 		updates, err := repo.GetTeamUpdates(r.Context(), teamID, 50)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			jsonError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
