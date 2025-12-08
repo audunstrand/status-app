@@ -10,6 +10,12 @@ import (
 	"github.com/yourusername/status-app/internal/events"
 )
 
+const (
+	// maxEventsPerRebuild is the maximum number of events to load during projection rebuild
+	// In production, this should be replaced with pagination for unlimited event handling
+	maxEventsPerRebuild = 10000
+)
+
 // Projector builds read models from events
 type Projector struct {
 	eventStore events.Store
@@ -55,7 +61,7 @@ func (p *Projector) Start(ctx context.Context) error {
 
 func (p *Projector) rebuildProjections(ctx context.Context) error {
 	// Get all events
-	allEvents, err := p.eventStore.GetAll(ctx, "", 0, 10000)
+	allEvents, err := p.eventStore.GetAll(ctx, "", 0, maxEventsPerRebuild)
 	if err != nil {
 		return fmt.Errorf("failed to get events: %w", err)
 	}

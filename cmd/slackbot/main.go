@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -14,6 +15,11 @@ import (
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
 	"github.com/yourusername/status-app/internal/config"
+)
+
+const (
+	// submitUpdateEndpoint is the API endpoint for submitting status updates
+	submitUpdateEndpoint = "/commands/submit-update"
 )
 
 type SlackBot struct {
@@ -88,6 +94,8 @@ func main() {
 }
 
 func (bot *SlackBot) handleEvent(event slackevents.EventsAPIEvent) {
+	ctx := context.Background()
+	
 	switch event.Type {
 	case slackevents.CallbackEvent:
 		innerEvent := event.InnerEvent
@@ -97,7 +105,7 @@ func (bot *SlackBot) handleEvent(event slackevents.EventsAPIEvent) {
 			
 			teamID := ev.Channel
 			
-			if err := bot.sendStatusUpdate(teamID, ev.Text, ev.User); err != nil {
+			if err := bot.sendStatusUpdate(ctx, teamID, ev.Text, ev.User); err != nil {
 				log.Printf("Failed to send status update: %v", err)
 				bot.sendSlackMessage(ev.Channel, "❌ Failed to record your status update. Please try again.")
 				return
@@ -118,7 +126,7 @@ func (bot *SlackBot) handleEvent(event slackevents.EventsAPIEvent) {
 			teamID := ev.Channel
 			
 			// Send status update to Commands service
-			if err := bot.sendStatusUpdate(teamID, ev.Text, ev.User); err != nil {
+			if err := bot.sendStatusUpdate(ctx, teamID, ev.Text, ev.User); err != nil {
 				log.Printf("Failed to send status update: %v", err)
 				bot.sendSlackMessage(ev.Channel, "❌ Failed to record your status update. Please try again.")
 				return
@@ -130,7 +138,7 @@ func (bot *SlackBot) handleEvent(event slackevents.EventsAPIEvent) {
 	}
 }
 
-func (bot *SlackBot) sendStatusUpdate(teamID, content, author string) error {
+func (bot *SlackBot) sendStatusUpdate(ctx context.Context, teamID, content, author string) error {
 	payload := map[string]string{
 		"team_id": teamID,
 		"content": content,
@@ -142,7 +150,7 @@ func (bot *SlackBot) sendStatusUpdate(teamID, content, author string) error {
 		return err
 	}
 	
-	req, err := http.NewRequest("POST", bot.cfg.CommandsURL+"/commands/submit-update", bytes.NewBuffer(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", bot.cfg.CommandsURL+submitUpdateEndpoint, bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}

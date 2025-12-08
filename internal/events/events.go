@@ -20,8 +20,8 @@ type Event struct {
 const (
 	StatusUpdateSubmitted = "status_update.submitted"
 	TeamRegistered        = "team.registered"
-	PollScheduled         = "poll.scheduled"
-	ReminderSent          = "reminder.sent"
+	PollScheduled         = "poll.scheduled" // TODO: Implement poll scheduling feature
+	ReminderSent          = "reminder.sent"  // TODO: Add reminder tracking in projections
 	TeamUpdated           = "team.updated"
 )
 
