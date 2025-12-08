@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -153,4 +154,9 @@ func (tdb *TestDB) ConnectionString() string {
 		tdb.t.Fatalf("Failed to get connection string: %v", err)
 	}
 	return connStr
+}
+
+// GenerateID generates a unique ID for testing
+func GenerateID() string {
+	return fmt.Sprintf("test-%d", time.Now().UnixNano())
 }
