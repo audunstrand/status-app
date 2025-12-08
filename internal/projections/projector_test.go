@@ -2,7 +2,6 @@ package projections
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -10,152 +9,146 @@ import (
 	"github.com/yourusername/status-app/tests/testutil"
 )
 
-func TestProjector_RebuildProjections(t *testing.T) {
+type projectorTestEnv struct {
+	t         *testing.T
+	ctx       context.Context
+	testDB    *testutil.TestDB
+	store     events.Store
+	projector *Projector
+	repo      *Repository
+}
+
+func setupProjector(t *testing.T) *projectorTestEnv {
+	t.Helper()
 	ctx := context.Background()
 	testDB := testutil.SetupTestDB(t)
-	defer testDB.Cleanup()
 
-	// Create event store
-	eventStore, err := events.NewPostgresStore(testDB.ConnectionString())
-	if err != nil {
-		t.Fatalf("Failed to create event store: %v", err)
+	store, err := events.NewPostgresStore(testDB.ConnectionString())
+	testutil.AssertNoError(t, err, "NewPostgresStore")
+
+	t.Cleanup(func() {
+		store.Close()
+		testDB.Cleanup()
+	})
+
+	return &projectorTestEnv{
+		t:         t,
+		ctx:       ctx,
+		testDB:    testDB,
+		store:     store,
+		projector: NewProjector(store, testDB.DB),
+		repo:      NewRepository(testDB.DB),
 	}
-	defer eventStore.Close()
+}
 
-	// Create projector
-	projector := NewProjector(eventStore, testDB.DB)
+func (e *projectorTestEnv) appendEvent(event *events.Event) {
+	e.t.Helper()
+	testutil.AssertNoError(e.t, e.store.Append(e.ctx, event), "Append event")
+}
 
+func (e *projectorTestEnv) rebuild() {
+	e.t.Helper()
+	testutil.AssertNoError(e.t, e.projector.rebuildProjections(e.ctx), "Rebuild projections")
+}
+
+// newTestEvent creates a test event with sensible defaults
+func newTestEvent(t *testing.T, eventType, aggregateID string, data interface{}, timestamp time.Time) *events.Event {
+	t.Helper()
+	return &events.Event{
+		ID:          testutil.GenerateID(),
+		Type:        eventType,
+		AggregateID: aggregateID,
+		Data:        testutil.MustMarshalJSON(t, data),
+		Timestamp:   timestamp,
+		Version:     1,
+	}
+}
+
+// newTeamRegisteredEvent creates a team.registered event
+func newTeamRegisteredEvent(t *testing.T, teamID, name, channel, schedule string, timestamp time.Time) *events.Event {
+	t.Helper()
+	data := events.TeamRegisteredData{
+		TeamID:       teamID,
+		Name:         name,
+		SlackChannel: channel,
+		PollSchedule: schedule,
+	}
+	return newTestEvent(t, events.TeamRegistered, teamID, data, timestamp)
+}
+
+// newTeamUpdatedEvent creates a team.updated event
+func newTeamUpdatedEvent(t *testing.T, teamID, name, channel, schedule string, timestamp time.Time) *events.Event {
+	t.Helper()
+	data := events.TeamRegisteredData{
+		TeamID:       teamID,
+		Name:         name,
+		SlackChannel: channel,
+		PollSchedule: schedule,
+	}
+	return newTestEvent(t, events.TeamUpdated, teamID, data, timestamp)
+}
+
+// newStatusUpdateEvent creates a status_update.submitted event
+func newStatusUpdateEvent(t *testing.T, teamID, content, author, slackUser string, timestamp time.Time) *events.Event {
+	t.Helper()
+	data := events.StatusUpdateSubmittedData{
+		UpdateID:  testutil.GenerateID(),
+		TeamID:    teamID,
+		Content:   content,
+		Author:    author,
+		SlackUser: slackUser,
+		Timestamp: timestamp,
+	}
+	return newTestEvent(t, events.StatusUpdateSubmitted, teamID, data, timestamp)
+}
+
+func TestProjector_RebuildProjections(t *testing.T) {
 	t.Run("handles team registration and multiple updates", func(t *testing.T) {
+		env := setupProjector(t)
 		teamID := "team-rebuild-1"
 		now := time.Now()
 
 		// Event 1: Team registered
-		teamRegData, _ := json.Marshal(events.TeamRegisteredData{
-			TeamID:       teamID,
-			Name:         "Original Engineering",
-			SlackChannel: "#engineering-old",
-			PollSchedule: "weekly",
-		})
-
-		event1 := &events.Event{
-			ID:          testutil.GenerateID(),
-			Type:        events.TeamRegistered,
-			AggregateID: teamID,
-			Data:        teamRegData,
-			Timestamp:   now,
-			Version:     1,
-		}
-
-		if err := eventStore.Append(ctx, event1); err != nil {
-			t.Fatalf("Failed to append event 1: %v", err)
-		}
+		env.appendEvent(newTeamRegisteredEvent(t, teamID, "Original Engineering", "#engineering-old", "weekly", now))
 
 		// Event 2: Team updated (first time)
-		teamUpdate1Data, _ := json.Marshal(events.TeamRegisteredData{
-			TeamID:       teamID,
-			Name:         "Updated Engineering",
-			SlackChannel: "#engineering-new",
-			PollSchedule: "daily",
-		})
-
-		event2 := &events.Event{
-			ID:          testutil.GenerateID(),
-			Type:        events.TeamUpdated,
-			AggregateID: teamID,
-			Data:        teamUpdate1Data,
-			Timestamp:   now.Add(1 * time.Hour),
-			Version:     2,
-		}
-
-		if err := eventStore.Append(ctx, event2); err != nil {
-			t.Fatalf("Failed to append event 2: %v", err)
-		}
+		env.appendEvent(newTeamUpdatedEvent(t, teamID, "Updated Engineering", "#engineering-new", "daily", now.Add(1*time.Hour)))
 
 		// Event 3: Team updated (second time)
-		teamUpdate2Data, _ := json.Marshal(events.TeamRegisteredData{
-			TeamID:       teamID,
-			Name:         "Final Engineering Team",
-			SlackChannel: "#engineering-final",
-			PollSchedule: "twice-daily",
-		})
+		env.appendEvent(newTeamUpdatedEvent(t, teamID, "Final Engineering Team", "#engineering-final", "twice-daily", now.Add(2*time.Hour)))
 
-		event3 := &events.Event{
-			ID:          testutil.GenerateID(),
-			Type:        events.TeamUpdated,
-			AggregateID: teamID,
-			Data:        teamUpdate2Data,
-			Timestamp:   now.Add(2 * time.Hour),
-			Version:     3,
-		}
+		// Rebuild and verify final state
+		env.rebuild()
 
-		if err := eventStore.Append(ctx, event3); err != nil {
-			t.Fatalf("Failed to append event 3: %v", err)
-		}
-
-		// Rebuild projections
-		if err := projector.rebuildProjections(ctx); err != nil {
-			t.Fatalf("Failed to rebuild projections: %v", err)
-		}
-
-		// Verify final state - should have the LAST update applied
-		repo := NewRepository(testDB.DB)
-		team, err := repo.GetTeam(ctx, teamID)
-		if err != nil {
-			t.Fatalf("Failed to get team: %v", err)
-		}
+		team, err := env.repo.GetTeam(env.ctx, teamID)
+		testutil.AssertNoError(t, err, "GetTeam")
 
 		// Should have the final values from event3
-		if team.Name != "Final Engineering Team" {
-			t.Errorf("Team name = %v, want 'Final Engineering Team'", team.Name)
-		}
-		if team.SlackChannel != "#engineering-final" {
-			t.Errorf("Team slack_channel = %v, want '#engineering-final'", team.SlackChannel)
-		}
-		if team.PollSchedule != "twice-daily" {
-			t.Errorf("Team poll_schedule = %v, want 'twice-daily'", team.PollSchedule)
-		}
+		testutil.AssertEqual(t, team.Name, "Final Engineering Team", "Team name")
+		testutil.AssertEqual(t, team.SlackChannel, "#engineering-final", "SlackChannel")
+		testutil.AssertEqual(t, team.PollSchedule, "twice-daily", "PollSchedule")
 	})
 
 	t.Run("handles status updates for multiple teams", func(t *testing.T) {
+		env := setupProjector(t)
 		now := time.Now()
 
 		// Register two teams FIRST (with earlier timestamps)
 		teams := []struct {
-			id      string
-			name    string
-			channel string
+			id, name, channel string
 		}{
 			{"team-multi-1", "Team Alpha", "#alpha"},
 			{"team-multi-2", "Team Beta", "#beta"},
 		}
 
 		for i, team := range teams {
-			teamData, _ := json.Marshal(events.TeamRegisteredData{
-				TeamID:       team.id,
-				Name:         team.name,
-				SlackChannel: team.channel,
-				PollSchedule: "weekly",
-			})
-
-			event := &events.Event{
-				ID:          testutil.GenerateID(),
-				Type:        events.TeamRegistered,
-				AggregateID: team.id,
-				Data:        teamData,
-				Timestamp:   now.Add(-10 * time.Minute).Add(time.Duration(i) * time.Minute), // Before updates
-				Version:     1,
-			}
-
-			if err := eventStore.Append(ctx, event); err != nil {
-				t.Fatalf("Failed to append team event: %v", err)
-			}
+			timestamp := now.Add(-10 * time.Minute).Add(time.Duration(i) * time.Minute)
+			env.appendEvent(newTeamRegisteredEvent(t, team.id, team.name, team.channel, "weekly", timestamp))
 		}
 
 		// Add status updates for both teams AFTER teams are registered
 		updates := []struct {
-			teamID  string
-			content string
-			author  string
+			teamID, content, author string
 		}{
 			{"team-multi-1", "Alpha update 1", "Alice"},
 			{"team-multi-1", "Alpha update 2", "Bob"},
@@ -165,269 +158,86 @@ func TestProjector_RebuildProjections(t *testing.T) {
 		}
 
 		for i, update := range updates {
-			updateData, _ := json.Marshal(events.StatusUpdateSubmittedData{
-				UpdateID:  testutil.GenerateID(),
-				TeamID:    update.teamID,
-				Content:   update.content,
-				Author:    update.author,
-				SlackUser: "U" + update.author,
-				Timestamp: now.Add(time.Duration(i) * time.Minute),
-			})
-
-			event := &events.Event{
-				ID:          testutil.GenerateID(),
-				Type:        events.StatusUpdateSubmitted,
-				AggregateID: update.teamID,
-				Data:        updateData,
-				Timestamp:   now.Add(time.Duration(i) * time.Minute),
-				Version:     i + 1,
-			}
-
-			if err := eventStore.Append(ctx, event); err != nil {
-				t.Fatalf("Failed to append status update: %v", err)
-			}
+			timestamp := now.Add(time.Duration(i) * time.Minute)
+			env.appendEvent(newStatusUpdateEvent(t, update.teamID, update.content, update.author, "U"+update.author, timestamp))
 		}
 
-		// Rebuild projections - should process teams first, then updates
-		if err := projector.rebuildProjections(ctx); err != nil {
-			t.Fatalf("Failed to rebuild projections: %v", err)
-		}
+		// Rebuild projections
+		env.rebuild()
 
 		// Verify team-multi-1 has 3 updates
-		repo := NewRepository(testDB.DB)
-		team1Updates, err := repo.GetTeamUpdates(ctx, "team-multi-1", 100)
-		if err != nil {
-			t.Fatalf("Failed to get team 1 updates: %v", err)
-		}
-
-		if len(team1Updates) != 3 {
-			t.Errorf("Team 1 updates count = %d, want 3", len(team1Updates))
-		}
+		team1Updates, err := env.repo.GetTeamUpdates(env.ctx, "team-multi-1", 100)
+		testutil.AssertNoError(t, err, "GetTeamUpdates team-1")
+		testutil.AssertEqual(t, len(team1Updates), 3, "Team 1 update count")
 
 		// Verify team-multi-2 has 2 updates
-		team2Updates, err := repo.GetTeamUpdates(ctx, "team-multi-2", 100)
-		if err != nil {
-			t.Fatalf("Failed to get team 2 updates: %v", err)
-		}
-
-		if len(team2Updates) != 2 {
-			t.Errorf("Team 2 updates count = %d, want 2", len(team2Updates))
-		}
+		team2Updates, err := env.repo.GetTeamUpdates(env.ctx, "team-multi-2", 100)
+		testutil.AssertNoError(t, err, "GetTeamUpdates team-2")
+		testutil.AssertEqual(t, len(team2Updates), 2, "Team 2 update count")
 
 		// Verify team summaries
-		summary1, err := repo.GetTeamSummary(ctx, "team-multi-1")
-		if err != nil {
-			t.Fatalf("Failed to get team 1 summary: %v", err)
-		}
+		summary1, err := env.repo.GetTeamSummary(env.ctx, "team-multi-1")
+		testutil.AssertNoError(t, err, "GetTeamSummary team-1")
+		testutil.AssertEqual(t, summary1.TotalUpdates, 3, "Team 1 total updates")
+		testutil.AssertEqual(t, summary1.UniqueContributos, 2, "Team 1 unique contributors (Alice, Bob)")
 
-		if summary1.TotalUpdates != 3 {
-			t.Errorf("Team 1 total updates = %d, want 3", summary1.TotalUpdates)
-		}
-
-		// Team 1 has updates from Alice (2) and Bob (1) = 2 unique contributors
-		if summary1.UniqueContributos != 2 {
-			t.Errorf("Team 1 unique contributors = %d, want 2 (Alice, Bob)", summary1.UniqueContributos)
-		}
-
-		summary2, err := repo.GetTeamSummary(ctx, "team-multi-2")
-		if err != nil {
-			t.Fatalf("Failed to get team 2 summary: %v", err)
-		}
-
-		if summary2.TotalUpdates != 2 {
-			t.Errorf("Team 2 total updates = %d, want 2", summary2.TotalUpdates)
-		}
-
-		// Team 2 has updates from Charlie and Dave = 2 unique contributors
-		if summary2.UniqueContributos != 2 {
-			t.Errorf("Team 2 unique contributors = %d, want 2 (Charlie, Dave)", summary2.UniqueContributos)
-		}
+		summary2, err := env.repo.GetTeamSummary(env.ctx, "team-multi-2")
+		testutil.AssertNoError(t, err, "GetTeamSummary team-2")
+		testutil.AssertEqual(t, summary2.TotalUpdates, 2, "Team 2 total updates")
+		testutil.AssertEqual(t, summary2.UniqueContributos, 2, "Team 2 unique contributors (Charlie, Dave)")
 	})
 
 	t.Run("handles idempotent event processing", func(t *testing.T) {
+		env := setupProjector(t)
 		teamID := "team-idempotent"
 		now := time.Now()
 
-		// Register team
-		teamData, _ := json.Marshal(events.TeamRegisteredData{
-			TeamID:       teamID,
-			Name:         "Idempotent Team",
-			SlackChannel: "#idempotent",
-			PollSchedule: "weekly",
-		})
+		// Register team and add status update
+		env.appendEvent(newTeamRegisteredEvent(t, teamID, "Idempotent Team", "#idempotent", "weekly", now))
+		env.appendEvent(newStatusUpdateEvent(t, teamID, "Test update", "Author", "U123", now))
 
-		teamEvent := &events.Event{
-			ID:          testutil.GenerateID(),
-			Type:        events.TeamRegistered,
-			AggregateID: teamID,
-			Data:        teamData,
-			Timestamp:   now,
-			Version:     1,
-		}
-
-		if err := eventStore.Append(ctx, teamEvent); err != nil {
-			t.Fatalf("Failed to append team event: %v", err)
-		}
-
-		// Add a status update
-		updateID := testutil.GenerateID()
-		updateData, _ := json.Marshal(events.StatusUpdateSubmittedData{
-			UpdateID:  updateID,
-			TeamID:    teamID,
-			Content:   "Test update",
-			Author:    "Author",
-			SlackUser: "U123",
-			Timestamp: now,
-		})
-
-		updateEvent := &events.Event{
-			ID:          testutil.GenerateID(),
-			Type:        events.StatusUpdateSubmitted,
-			AggregateID: teamID,
-			Data:        updateData,
-			Timestamp:   now,
-			Version:     2,
-		}
-
-		if err := eventStore.Append(ctx, updateEvent); err != nil {
-			t.Fatalf("Failed to append update event: %v", err)
-		}
-
-		// Rebuild projections first time
-		if err := projector.rebuildProjections(ctx); err != nil {
-			t.Fatalf("Failed to rebuild projections (first): %v", err)
-		}
-
-		// Rebuild projections second time (should be idempotent)
-		if err := projector.rebuildProjections(ctx); err != nil {
-			t.Fatalf("Failed to rebuild projections (second): %v", err)
-		}
+		// Rebuild projections twice (should be idempotent)
+		env.rebuild()
+		env.rebuild()
 
 		// Verify we still only have 1 team and 1 update (not duplicates)
-		repo := NewRepository(testDB.DB)
-		
-		team, err := repo.GetTeam(ctx, teamID)
-		if err != nil {
-			t.Fatalf("Failed to get team: %v", err)
-		}
-		if team.Name != "Idempotent Team" {
-			t.Errorf("Team name = %v, want 'Idempotent Team'", team.Name)
-		}
+		team, err := env.repo.GetTeam(env.ctx, teamID)
+		testutil.AssertNoError(t, err, "GetTeam")
+		testutil.AssertEqual(t, team.Name, "Idempotent Team", "Team name")
 
-		updates, err := repo.GetTeamUpdates(ctx, teamID, 100)
-		if err != nil {
-			t.Fatalf("Failed to get updates: %v", err)
-		}
-
-		if len(updates) != 1 {
-			t.Errorf("Update count = %d, want 1 (idempotent rebuild)", len(updates))
-		}
+		updates, err := env.repo.GetTeamUpdates(env.ctx, teamID, 100)
+		testutil.AssertNoError(t, err, "GetTeamUpdates")
+		testutil.AssertEqual(t, len(updates), 1, "Update count (idempotent rebuild)")
 	})
 
 	t.Run("handles empty event stream", func(t *testing.T) {
-		// Create a fresh projector on the same DB (already has events from other tests)
-		// This tests that rebuild only processes existing events without errors
-		
-		if err := projector.rebuildProjections(ctx); err != nil {
-			t.Fatalf("Failed to rebuild with existing events: %v", err)
-		}
+		env := setupProjector(t)
 
 		// Should complete without error even if called multiple times
-		if err := projector.rebuildProjections(ctx); err != nil {
-			t.Fatalf("Failed second rebuild: %v", err)
-		}
+		env.rebuild()
+		env.rebuild()
 	})
 
 	t.Run("verifies event ordering matters for team updates", func(t *testing.T) {
+		env := setupProjector(t)
 		teamID := "team-ordering"
 		now := time.Now()
 
 		// Event sequence: register -> update -> update
 		// The LAST update should be what we see in the projection
-
-		// 1. Register
-		registerData, _ := json.Marshal(events.TeamRegisteredData{
-			TeamID:       teamID,
-			Name:         "First Name",
-			SlackChannel: "#first",
-			PollSchedule: "weekly",
-		})
-
-		event1 := &events.Event{
-			ID:          testutil.GenerateID(),
-			Type:        events.TeamRegistered,
-			AggregateID: teamID,
-			Data:        registerData,
-			Timestamp:   now,
-			Version:     1,
-		}
-
-		if err := eventStore.Append(ctx, event1); err != nil {
-			t.Fatalf("Failed to append register event: %v", err)
-		}
-
-		// 2. Update to "Second Name"
-		update1Data, _ := json.Marshal(events.TeamRegisteredData{
-			TeamID:       teamID,
-			Name:         "Second Name",
-			SlackChannel: "#second",
-			PollSchedule: "daily",
-		})
-
-		event2 := &events.Event{
-			ID:          testutil.GenerateID(),
-			Type:        events.TeamUpdated,
-			AggregateID: teamID,
-			Data:        update1Data,
-			Timestamp:   now.Add(1 * time.Hour),
-			Version:     2,
-		}
-
-		if err := eventStore.Append(ctx, event2); err != nil {
-			t.Fatalf("Failed to append first update: %v", err)
-		}
-
-		// 3. Update to "Third Name" 
-		update2Data, _ := json.Marshal(events.TeamRegisteredData{
-			TeamID:       teamID,
-			Name:         "Third Name",
-			SlackChannel: "#third",
-			PollSchedule: "hourly",
-		})
-
-		event3 := &events.Event{
-			ID:          testutil.GenerateID(),
-			Type:        events.TeamUpdated,
-			AggregateID: teamID,
-			Data:        update2Data,
-			Timestamp:   now.Add(2 * time.Hour),
-			Version:     3,
-		}
-
-		if err := eventStore.Append(ctx, event3); err != nil {
-			t.Fatalf("Failed to append second update: %v", err)
-		}
+		env.appendEvent(newTeamRegisteredEvent(t, teamID, "First Name", "#first", "weekly", now))
+		env.appendEvent(newTeamUpdatedEvent(t, teamID, "Second Name", "#second", "daily", now.Add(1*time.Hour)))
+		env.appendEvent(newTeamUpdatedEvent(t, teamID, "Third Name", "#third", "hourly", now.Add(2*time.Hour)))
 
 		// Rebuild and verify we have the LAST state
-		if err := projector.rebuildProjections(ctx); err != nil {
-			t.Fatalf("Failed to rebuild: %v", err)
-		}
+		env.rebuild()
 
-		repo := NewRepository(testDB.DB)
-		team, err := repo.GetTeam(ctx, teamID)
-		if err != nil {
-			t.Fatalf("Failed to get team: %v", err)
-		}
+		team, err := env.repo.GetTeam(env.ctx, teamID)
+		testutil.AssertNoError(t, err, "GetTeam")
 
 		// Verify the projection has the FINAL state (from event3)
-		if team.Name != "Third Name" {
-			t.Errorf("Team name = %v, want 'Third Name' (last update)", team.Name)
-		}
-		if team.SlackChannel != "#third" {
-			t.Errorf("SlackChannel = %v, want '#third'", team.SlackChannel)
-		}
-		if team.PollSchedule != "hourly" {
-			t.Errorf("PollSchedule = %v, want 'hourly'", team.PollSchedule)
-		}
+		testutil.AssertEqual(t, team.Name, "Third Name", "Team name (last update)")
+		testutil.AssertEqual(t, team.SlackChannel, "#third", "SlackChannel")
+		testutil.AssertEqual(t, team.PollSchedule, "hourly", "PollSchedule")
 	})
 }

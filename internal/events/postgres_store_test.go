@@ -9,123 +9,111 @@ import (
 	"github.com/yourusername/status-app/tests/testutil"
 )
 
-func TestPostgresStore_Append(t *testing.T) {
+func setupEventStore(t *testing.T) (context.Context, Store, *testutil.TestDB) {
+	t.Helper()
 	ctx := context.Background()
 	testDB := testutil.SetupTestDB(t)
-	defer testDB.Cleanup()
 
 	store, err := NewPostgresStore(testDB.ConnectionString())
-	if err != nil {
-		t.Fatalf("Failed to create store: %v", err)
+	testutil.AssertNoError(t, err, "NewPostgresStore")
+
+	t.Cleanup(func() {
+		store.Close()
+		testDB.Cleanup()
+	})
+
+	return ctx, store, testDB
+}
+
+// newTestEvent creates a test event with sensible defaults
+func newTestEvent(t *testing.T, eventType, aggregateID string, data interface{}, timestamp time.Time) *Event {
+	t.Helper()
+	return &Event{
+		ID:          testutil.GenerateID(),
+		Type:        eventType,
+		AggregateID: aggregateID,
+		Data:        testutil.MustMarshalJSON(t, data),
+		Timestamp:   timestamp,
+		Version:     1,
 	}
-	defer store.Close()
+}
+
+// newTeamRegisteredEvent creates a team.registered event
+func newTeamRegisteredEvent(t *testing.T, teamID, name, channel, schedule string, timestamp time.Time) *Event {
+	t.Helper()
+	data := TeamRegisteredData{
+		TeamID:       teamID,
+		Name:         name,
+		SlackChannel: channel,
+		PollSchedule: schedule,
+	}
+	return newTestEvent(t, TeamRegistered, teamID, data, timestamp)
+}
+
+// newStatusUpdateEvent creates a status_update.submitted event
+func newStatusUpdateEvent(t *testing.T, teamID, content, author, slackUser string, timestamp time.Time) *Event {
+	t.Helper()
+	data := StatusUpdateSubmittedData{
+		UpdateID:  testutil.GenerateID(),
+		TeamID:    teamID,
+		Content:   content,
+		Author:    author,
+		SlackUser: slackUser,
+		Timestamp: timestamp,
+	}
+	return newTestEvent(t, StatusUpdateSubmitted, teamID, data, timestamp)
+}
+
+func TestPostgresStore_Append(t *testing.T) {
+	ctx, store, _ := setupEventStore(t)
 
 	t.Run("appends event successfully", func(t *testing.T) {
-		data, _ := json.Marshal(TeamRegisteredData{
-			TeamID:       "team-1",
-			Name:         "Engineering",
-			SlackChannel: "#engineering",
-			PollSchedule: "weekly",
-		})
-
-		event := &Event{
-			ID:          "evt-1",
-			Type:        TeamRegistered,
-			AggregateID: "team-1",
-			Data:        data,
-			Timestamp:   time.Now(),
-			Version:     1,
-		}
+		event := newTeamRegisteredEvent(t, "team-1", "Engineering", "#engineering", "weekly", time.Now())
 
 		err := store.Append(ctx, event)
-		if err != nil {
-			t.Errorf("Append() error = %v", err)
-		}
+		testutil.AssertNoError(t, err, "Append")
 	})
 
 	t.Run("retrieves event by aggregate ID", func(t *testing.T) {
-		// Append event
-		data, _ := json.Marshal(TeamRegisteredData{
-			TeamID:       "team-2",
-			Name:         "Product",
-			SlackChannel: "#product",
-			PollSchedule: "daily",
-		})
+		event := newTeamRegisteredEvent(t, "team-2", "Product", "#product", "daily", time.Now())
+		testutil.AssertNoError(t, store.Append(ctx, event), "Append")
 
-		event := &Event{
-			ID:          "evt-2",
-			Type:        TeamRegistered,
-			AggregateID: "team-2",
-			Data:        data,
-			Timestamp:   time.Now(),
-			Version:     1,
-		}
-
-		err := store.Append(ctx, event)
-		if err != nil {
-			t.Fatalf("Append() error = %v", err)
-		}
-
-		// Retrieve by aggregate ID
 		events, err := store.GetByAggregateID(ctx, "team-2")
-		if err != nil {
-			t.Errorf("GetByAggregateID() error = %v", err)
-		}
+		testutil.AssertNoError(t, err, "GetByAggregateID")
 
 		if len(events) == 0 {
-			t.Error("GetByAggregateID() returned no events")
+			t.Fatal("GetByAggregateID() returned no events")
 		}
 
 		found := false
 		for _, e := range events {
-			if e.ID == "evt-2" {
+			if e.ID == event.ID {
 				found = true
-				if e.Type != TeamRegistered {
-					t.Errorf("Event type = %v, want %v", e.Type, TeamRegistered)
-				}
-				if e.AggregateID != "team-2" {
-					t.Errorf("AggregateID = %v, want team-2", e.AggregateID)
-				}
+				testutil.AssertEqual(t, e.Type, TeamRegistered, "Event type")
+				testutil.AssertEqual(t, e.AggregateID, "team-2", "AggregateID")
 			}
 		}
 
 		if !found {
-			t.Error("Event evt-2 not found in results")
+			t.Errorf("Event %s not found in results", event.ID)
 		}
 	})
 
 	t.Run("retrieves all events with pagination", func(t *testing.T) {
 		// Append multiple events
 		for i := 0; i < 5; i++ {
-			data, _ := json.Marshal(StatusUpdateSubmittedData{
-				UpdateID:  "update-" + string(rune('A'+i)),
-				TeamID:    "team-3",
-				Content:   "Update " + string(rune('A'+i)),
-				Author:    "Author",
-				SlackUser: "U123",
-				Timestamp: time.Now(),
-			})
-
-			event := &Event{
-				ID:          "evt-3-" + string(rune('A'+i)),
-				Type:        StatusUpdateSubmitted,
-				AggregateID: "team-3",
-				Data:        data,
-				Timestamp:   time.Now(),
-				Version:     i + 1,
-			}
-
-			err := store.Append(ctx, event)
-			if err != nil {
-				t.Fatalf("Append() error = %v", err)
-			}
+			event := newStatusUpdateEvent(t,
+				"team-3",
+				"Update "+string(rune('A'+i)),
+				"Author",
+				"U123",
+				time.Now().Add(time.Duration(i)*time.Second),
+			)
+			testutil.AssertNoError(t, store.Append(ctx, event), "Append")
 		}
 
-		// Get all events
 		events, err := store.GetAll(ctx, "", 0, 10)
-		if err != nil {
-			t.Errorf("GetAll() error = %v", err)
-		}
+		testutil.AssertNoError(t, err, "GetAll")
 
 		if len(events) < 5 {
 			t.Errorf("GetAll() returned %d events, want at least 5", len(events))
@@ -133,35 +121,20 @@ func TestPostgresStore_Append(t *testing.T) {
 	})
 
 	t.Run("filters events by type", func(t *testing.T) {
-		// Get only TeamRegistered events
 		events, err := store.GetAll(ctx, TeamRegistered, 0, 100)
-		if err != nil {
-			t.Errorf("GetAll() with filter error = %v", err)
-		}
+		testutil.AssertNoError(t, err, "GetAll with filter")
 
 		for _, e := range events {
-			if e.Type != TeamRegistered {
-				t.Errorf("Event type = %v, want %v", e.Type, TeamRegistered)
-			}
+			testutil.AssertEqual(t, e.Type, TeamRegistered, "Event type")
 		}
 	})
 }
 
 func TestPostgresStore_GetByAggregateID_Empty(t *testing.T) {
-	ctx := context.Background()
-	testDB := testutil.SetupTestDB(t)
-	defer testDB.Cleanup()
-
-	store, err := NewPostgresStore(testDB.ConnectionString())
-	if err != nil {
-		t.Fatalf("Failed to create store: %v", err)
-	}
-	defer store.Close()
+	ctx, store, _ := setupEventStore(t)
 
 	events, err := store.GetByAggregateID(ctx, "non-existent")
-	if err != nil {
-		t.Errorf("GetByAggregateID() error = %v", err)
-	}
+	testutil.AssertNoError(t, err, "GetByAggregateID")
 
 	if len(events) != 0 {
 		t.Errorf("GetByAggregateID() returned %d events, want 0", len(events))
@@ -169,30 +142,18 @@ func TestPostgresStore_GetByAggregateID_Empty(t *testing.T) {
 }
 
 func TestEvent_MarshalUnmarshal(t *testing.T) {
-	t.Run("marshals and unmarshals event data", func(t *testing.T) {
-		teamData := TeamRegisteredData{
-			TeamID:       "team-test",
-			Name:         "Test Team",
-			SlackChannel: "#test",
-			PollSchedule: "daily",
-		}
+	teamData := TeamRegisteredData{
+		TeamID:       "team-test",
+		Name:         "Test Team",
+		SlackChannel: "#test",
+		PollSchedule: "daily",
+	}
 
-		data, err := json.Marshal(teamData)
-		if err != nil {
-			t.Fatalf("json.Marshal() error = %v", err)
-		}
+	data := testutil.MustMarshalJSON(t, teamData)
 
-		var unmarshaled TeamRegisteredData
-		err = json.Unmarshal(data, &unmarshaled)
-		if err != nil {
-			t.Fatalf("json.Unmarshal() error = %v", err)
-		}
+	var unmarshaled TeamRegisteredData
+	testutil.AssertNoError(t, json.Unmarshal(data, &unmarshaled), "json.Unmarshal")
 
-		if unmarshaled.TeamID != teamData.TeamID {
-			t.Errorf("TeamID = %v, want %v", unmarshaled.TeamID, teamData.TeamID)
-		}
-		if unmarshaled.Name != teamData.Name {
-			t.Errorf("Name = %v, want %v", unmarshaled.Name, teamData.Name)
-		}
-	})
+	testutil.AssertEqual(t, unmarshaled.TeamID, teamData.TeamID, "TeamID")
+	testutil.AssertEqual(t, unmarshaled.Name, teamData.Name, "Name")
 }

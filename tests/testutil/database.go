@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -159,4 +160,56 @@ func (tdb *TestDB) ConnectionString() string {
 // GenerateID generates a unique ID for testing
 func GenerateID() string {
 	return fmt.Sprintf("test-%d", time.Now().UnixNano())
+}
+
+// MustMarshalJSON marshals v to JSON or fails the test
+func MustMarshalJSON(t *testing.T, v interface{}) []byte {
+	t.Helper()
+	data, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("json.Marshal failed: %v", err)
+	}
+	return data
+}
+
+// InsertTestTeam inserts a team into the database for testing
+func InsertTestTeam(t *testing.T, db *sql.DB, teamID, name, channel string) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO teams (team_id, name, slack_channel, poll_schedule, created_at, updated_at)
+		VALUES ($1, $2, $3, 'weekly', NOW(), NOW())
+	`, teamID, name, channel)
+	if err != nil {
+		t.Fatalf("Failed to insert test team %s: %v", teamID, err)
+	}
+}
+
+// InsertTestStatusUpdate inserts a status update into the database for testing
+func InsertTestStatusUpdate(t *testing.T, db *sql.DB, teamID, content, author, slackUser string) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO status_updates (update_id, team_id, content, author, slack_user, created_at)
+		VALUES ($1, $2, $3, $4, $5, NOW())
+	`, GenerateID(), teamID, content, author, slackUser)
+	if err != nil {
+		t.Fatalf("Failed to insert test status update: %v", err)
+	}
+}
+
+// AssertEqual checks if got == want and fails with a clear message if not
+func AssertEqual(t *testing.T, got, want interface{}, field string) {
+	t.Helper()
+	if got != want {
+		t.Errorf("%s = %v, want %v", field, got, want)
+	}
+}
+
+// AssertNoError fails the test if err is not nil
+func AssertNoError(t *testing.T, err error, operation string) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("%s failed: %v", operation, err)
+	}
 }
