@@ -179,12 +179,12 @@ func TestProjector_RebuildProjections(t *testing.T) {
 		summary1, err := env.repo.GetTeamSummary(env.ctx, "team-multi-1")
 		testutil.AssertNoError(t, err, "GetTeamSummary team-1")
 		testutil.AssertEqual(t, summary1.TotalUpdates, 3, "Team 1 total updates")
-		testutil.AssertEqual(t, summary1.UniqueContributos, 2, "Team 1 unique contributors (Alice, Bob)")
+		testutil.AssertEqual(t, summary1.UniqueContributors, 2, "Team 1 unique contributors (Alice, Bob)")
 
 		summary2, err := env.repo.GetTeamSummary(env.ctx, "team-multi-2")
 		testutil.AssertNoError(t, err, "GetTeamSummary team-2")
 		testutil.AssertEqual(t, summary2.TotalUpdates, 2, "Team 2 total updates")
-		testutil.AssertEqual(t, summary2.UniqueContributos, 2, "Team 2 unique contributors (Charlie, Dave)")
+		testutil.AssertEqual(t, summary2.UniqueContributors, 2, "Team 2 unique contributors (Charlie, Dave)")
 	})
 
 	t.Run("handles idempotent event processing", func(t *testing.T) {

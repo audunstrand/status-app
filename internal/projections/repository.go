@@ -149,7 +149,7 @@ func (r *Repository) GetTeamSummary(ctx context.Context, teamID string) (*TeamSu
 	err = r.db.QueryRowContext(ctx, query, teamID).Scan(
 		&summary.TotalUpdates,
 		&summary.LastUpdateAt,
-		&summary.UniqueContributos,
+		&summary.UniqueContributors,
 	)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("failed to get team summary: %w", err)

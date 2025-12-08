@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	_ "github.com/lib/pq"
 )
@@ -54,7 +55,9 @@ func (s *PostgresStore) Append(ctx context.Context, event *Event) error {
 	}
 
 	// Notify listeners (PostgreSQL NOTIFY)
-	_, _ = s.db.ExecContext(ctx, "NOTIFY events, $1", event.ID)
+	if _, err := s.db.ExecContext(ctx, "NOTIFY events, $1", event.ID); err != nil {
+		log.Printf("Warning: failed to notify listeners: %v", err)
+	}
 
 	return nil
 }

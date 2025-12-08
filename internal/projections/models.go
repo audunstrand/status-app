@@ -24,9 +24,9 @@ type StatusUpdate struct {
 
 // TeamSummary provides aggregate information about a team
 type TeamSummary struct {
-	Team              Team      `json:"team"`
-	TotalUpdates      int       `json:"total_updates"`
-	LastUpdateAt      time.Time `json:"last_update_at"`
-	LastReminderSent  time.Time `json:"last_reminder_sent"`
-	UniqueContributos int       `json:"unique_contributors"`
+	Team               Team      `json:"team"`
+	TotalUpdates       int       `json:"total_updates"`
+	LastUpdateAt       time.Time `json:"last_update_at"`
+	LastReminderSent   time.Time `json:"last_reminder_sent"`
+	UniqueContributors int       `json:"unique_contributors"`
 }

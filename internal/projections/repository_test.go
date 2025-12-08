@@ -153,7 +153,7 @@ func TestRepository_GetTeamSummary(t *testing.T) {
 
 	testutil.AssertEqual(t, summary.Team.TeamID, "team-1", "TeamID")
 	testutil.AssertEqual(t, summary.TotalUpdates, 4, "TotalUpdates")
-	testutil.AssertEqual(t, summary.UniqueContributos, 3, "UniqueContributos")
+	testutil.AssertEqual(t, summary.UniqueContributors, 3, "UniqueContributors")
 
 	if summary.LastUpdateAt.IsZero() {
 		t.Error("LastUpdateAt should not be zero")

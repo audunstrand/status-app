@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
@@ -23,8 +24,10 @@ type SlackBot struct {
 
 func NewSlackBot(cfg *config.Config, slackAPI *slack.Client) *SlackBot {
 	return &SlackBot{
-		cfg:      cfg,
-		client:   &http.Client{},
+		cfg: cfg,
+		client: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 		slackAPI: slackAPI,
 	}
 }
