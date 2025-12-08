@@ -142,3 +142,15 @@ func (tdb *TestDB) Cleanup() {
 		}
 	}
 }
+
+// ConnectionString returns the database connection string
+func (tdb *TestDB) ConnectionString() string {
+	tdb.t.Helper()
+
+	ctx := context.Background()
+	connStr, err := tdb.container.ConnectionString(ctx, "sslmode=disable")
+	if err != nil {
+		tdb.t.Fatalf("Failed to get connection string: %v", err)
+	}
+	return connStr
+}
