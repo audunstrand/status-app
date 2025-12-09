@@ -4,10 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -157,9 +157,9 @@ func (tdb *TestDB) ConnectionString() string {
 	return connStr
 }
 
-// GenerateID generates a unique ID for testing
+// GenerateID generates a unique ID for testing (UUID format)
 func GenerateID() string {
-	return fmt.Sprintf("test-%d", time.Now().UnixNano())
+	return uuid.New().String()
 }
 
 // MustMarshalJSON marshals v to JSON or fails the test

@@ -6,12 +6,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"regexp"
+	"time"
 
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 )
 
+// validUUID is a regex pattern for UUID validation
+var validUUID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
 type PostgresStore struct {
-	db *sql.DB
+	db      *sql.DB
+	connStr string
 }
 
 func NewPostgresStore(connStr string) (*PostgresStore, error) {
@@ -24,7 +30,7 @@ func NewPostgresStore(connStr string) (*PostgresStore, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return &PostgresStore{db: db}, nil
+	return &PostgresStore{db: db, connStr: connStr}, nil
 }
 
 func (s *PostgresStore) Append(ctx context.Context, event *Event) error {
@@ -55,8 +61,14 @@ func (s *PostgresStore) Append(ctx context.Context, event *Event) error {
 	}
 
 	// Notify listeners (PostgreSQL NOTIFY)
-	if _, err := s.db.ExecContext(ctx, "NOTIFY events, $1", event.ID); err != nil {
-		log.Printf("Warning: failed to notify listeners: %v", err)
+	// Validate event.ID is a proper UUID to prevent SQL injection
+	if !validUUID.MatchString(event.ID) {
+		log.Printf("Warning: event ID %s is not a valid UUID, skipping NOTIFY", event.ID)
+	} else {
+		// NOTIFY doesn't support parameterized queries, but we've validated the UUID format
+		if _, err := s.db.ExecContext(ctx, fmt.Sprintf("NOTIFY events, '%s'", event.ID)); err != nil {
+			log.Printf("Warning: failed to notify listeners: %v", err)
+		}
 	}
 
 	return nil
@@ -76,6 +88,40 @@ func (s *PostgresStore) GetByAggregateID(ctx context.Context, aggregateID string
 	defer rows.Close()
 
 	return s.scanEvents(rows)
+}
+
+func (s *PostgresStore) GetByID(ctx context.Context, id string) (*Event, error) {
+	query := `
+		SELECT id, type, aggregate_id, data, timestamp, metadata, version
+		FROM events
+		WHERE id = $1
+	`
+	row := s.db.QueryRowContext(ctx, query, id)
+
+	var event Event
+	var metadata sql.NullString
+
+	err := row.Scan(
+		&event.ID,
+		&event.Type,
+		&event.AggregateID,
+		&event.Data,
+		&event.Timestamp,
+		&metadata,
+		&event.Version,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil // Event not found
+		}
+		return nil, fmt.Errorf("failed to scan event: %w", err)
+	}
+
+	if metadata.Valid {
+		event.Metadata = json.RawMessage(metadata.String)
+	}
+
+	return &event, nil
 }
 
 func (s *PostgresStore) GetAll(ctx context.Context, eventType string, offset, limit int) ([]*Event, error) {
@@ -111,14 +157,74 @@ func (s *PostgresStore) GetAll(ctx context.Context, eventType string, offset, li
 }
 
 func (s *PostgresStore) Subscribe(ctx context.Context, eventTypes []string) (<-chan *Event, error) {
-	// TODO: Implement LISTEN/NOTIFY for real-time event streaming
-	// For now, return a simple implementation
-	ch := make(chan *Event)
+	// Create PostgreSQL listener
+	listener := pq.NewListener(
+		s.connStr,
+		10*time.Second,  // minReconnectInterval
+		time.Minute,     // maxReconnectInterval
+		func(ev pq.ListenerEventType, err error) {
+			if err != nil {
+				log.Printf("Listener error: %v", err)
+			}
+		},
+	)
+
+	// Listen on the 'events' channel
+	if err := listener.Listen("events"); err != nil {
+		listener.Close()
+		return nil, fmt.Errorf("failed to listen on events channel: %w", err)
+	}
+
+	ch := make(chan *Event, 10) // Buffered to prevent blocking NOTIFY
+
+	// Start goroutine to process notifications
 	go func() {
-		<-ctx.Done()
-		close(ch)
+		defer close(ch)
+		defer listener.Close()
+
+		for {
+			select {
+			case n := <-listener.Notify:
+				if n != nil {
+					// n.Extra contains the event ID
+					// Use a separate context with timeout for fetching the event
+					// to avoid blocking if the parent context is cancelled
+					fetchCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					event, err := s.GetByID(fetchCtx, n.Extra)
+					cancel()
+					
+					if err != nil {
+						log.Printf("Failed to get event %s: %v", n.Extra, err)
+						continue
+					}
+					if event != nil {
+						// Check if event type matches filter (if specified)
+						if len(eventTypes) == 0 || containsEventType(eventTypes, event.Type) {
+							select {
+							case ch <- event:
+							case <-ctx.Done():
+								return
+							}
+						}
+					}
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
 	}()
+
 	return ch, nil
+}
+
+// containsEventType checks if a given event type is in the list
+func containsEventType(types []string, eventType string) bool {
+	for _, t := range types {
+		if t == eventType {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *PostgresStore) Close() error {
