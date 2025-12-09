@@ -45,13 +45,13 @@ func main() {
 	// Setup cron scheduler
 	c := cron.New()
 
-	// Check for teams to poll every hour
-	c.AddFunc("@hourly", func() {
+	// Run every Monday at 9 AM
+	c.AddFunc("0 9 * * 1", func() {
 		checkAndSendReminders(ctx, repo, slackAPI, cfg)
 	})
 
 	c.Start()
-	log.Println("Scheduler service running")
+	log.Println("Scheduler service running (reminders every Monday at 9 AM)")
 
 	// Wait for interrupt signal
 	sigCh := make(chan os.Signal, 1)
@@ -71,7 +71,7 @@ func checkAndSendReminders(ctx context.Context, repo *projections.Repository, sl
 
 	now := time.Now()
 	for _, team := range teams {
-		if scheduler.ShouldRemind(team.PollSchedule, team.LastRemindedAt, now) {
+		if scheduler.ShouldRemind(team.LastRemindedAt, now) {
 			log.Printf("Sending reminder to team %s (%s)", team.Name, team.TeamID)
 			
 			if err := sendSlackReminder(slackAPI, team.SlackChannel, team.Name); err != nil {
