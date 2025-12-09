@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -127,7 +128,7 @@ func recordReminder(ctx context.Context, cfg *config.Config, teamID, slackChanne
 	defer resp.Body.Close()
 	
 	if resp.StatusCode != http.StatusCreated {
-		log.Printf("Failed to record reminder: status %d", resp.StatusCode)
+		return fmt.Errorf("failed to record reminder: status %d", resp.StatusCode)
 	}
 	
 	return nil
