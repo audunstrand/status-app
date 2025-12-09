@@ -13,6 +13,8 @@ dist/
 /projections
 /scheduler
 /slackbot
+/backend
+/migrate
 
 # Test binary
 *.test
