@@ -2,6 +2,7 @@ package projections
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -239,5 +240,91 @@ func TestProjector_RebuildProjections(t *testing.T) {
 		testutil.AssertEqual(t, team.Name, "Third Name", "Team name (last update)")
 		testutil.AssertEqual(t, team.SlackChannel, "#third", "SlackChannel")
 		testutil.AssertEqual(t, team.PollSchedule, "hourly", "PollSchedule")
+	})
+}
+
+func TestProjector_RealTimeUpdates(t *testing.T) {
+	t.Run("projects events in real-time without polling", func(t *testing.T) {
+		env := setupProjector(t)
+
+		// Start the projector with real-time subscription
+		ctx, cancel := context.WithTimeout(env.ctx, 30*time.Second)
+		defer cancel()
+
+		testutil.AssertNoError(t, env.projector.Start(ctx), "Start projector")
+
+		// Give the projector time to initialize
+		time.Sleep(200 * time.Millisecond)
+
+		// Add a team event
+		teamID := "team-realtime"
+		now := time.Now()
+		env.appendEvent(newTeamRegisteredEvent(t, teamID, "Real-time Team", "#realtime", "daily", now))
+
+		// Wait a moment for real-time processing
+		time.Sleep(500 * time.Millisecond)
+
+		// Verify team was projected
+		team, err := env.repo.GetTeam(env.ctx, teamID)
+		testutil.AssertNoError(t, err, "GetTeam")
+		testutil.AssertEqual(t, team.Name, "Real-time Team", "Team name")
+
+		// Add a status update event
+		env.appendEvent(newStatusUpdateEvent(t, teamID, "First update", "Alice", "U123", now.Add(1*time.Minute)))
+
+		// Wait for real-time processing
+		time.Sleep(500 * time.Millisecond)
+
+		// Verify update was projected
+		updates, err := env.repo.GetTeamUpdates(env.ctx, teamID, 10)
+		testutil.AssertNoError(t, err, "GetTeamUpdates")
+		testutil.AssertEqual(t, len(updates), 1, "Update count")
+		testutil.AssertEqual(t, updates[0].Content, "First update", "Update content")
+
+		// Add another update
+		env.appendEvent(newStatusUpdateEvent(t, teamID, "Second update", "Bob", "U456", now.Add(2*time.Minute)))
+
+		// Wait for real-time processing
+		time.Sleep(500 * time.Millisecond)
+
+		// Verify second update was projected
+		updates, err = env.repo.GetTeamUpdates(env.ctx, teamID, 10)
+		testutil.AssertNoError(t, err, "GetTeamUpdates")
+		testutil.AssertEqual(t, len(updates), 2, "Update count after second update")
+	})
+
+	t.Run("handles rapid event sequences", func(t *testing.T) {
+		env := setupProjector(t)
+
+		ctx, cancel := context.WithTimeout(env.ctx, 30*time.Second)
+		defer cancel()
+
+		testutil.AssertNoError(t, env.projector.Start(ctx), "Start projector")
+		time.Sleep(200 * time.Millisecond)
+
+		teamID := "team-rapid"
+		now := time.Now()
+
+		// Register team
+		env.appendEvent(newTeamRegisteredEvent(t, teamID, "Rapid Team", "#rapid", "weekly", now))
+
+		// Rapidly add multiple updates
+		for i := 0; i < 5; i++ {
+			env.appendEvent(newStatusUpdateEvent(t,
+				teamID,
+				fmt.Sprintf("Update %d", i+1),
+				"Author",
+				"U123",
+				now.Add(time.Duration(i)*time.Second),
+			))
+		}
+
+		// Wait for all events to be processed
+		time.Sleep(2 * time.Second)
+
+		// Verify all updates were projected
+		updates, err := env.repo.GetTeamUpdates(env.ctx, teamID, 10)
+		testutil.AssertNoError(t, err, "GetTeamUpdates")
+		testutil.AssertEqual(t, len(updates), 5, "All rapid updates should be projected")
 	})
 }

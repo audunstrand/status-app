@@ -26,6 +26,15 @@ func (m *MockEventStore) GetByAggregateID(ctx context.Context, aggregateID strin
 	return m.events, m.err
 }
 
+func (m *MockEventStore) GetByID(ctx context.Context, id string) (*events.Event, error) {
+	for _, event := range m.events {
+		if event.ID == id {
+			return event, nil
+		}
+	}
+	return nil, m.err
+}
+
 func (m *MockEventStore) GetAll(ctx context.Context, eventType string, offset, limit int) ([]*events.Event, error) {
 	return m.events, m.err
 }

@@ -157,3 +157,123 @@ func TestEvent_MarshalUnmarshal(t *testing.T) {
 	testutil.AssertEqual(t, unmarshaled.TeamID, teamData.TeamID, "TeamID")
 	testutil.AssertEqual(t, unmarshaled.Name, teamData.Name, "Name")
 }
+
+func TestPostgresStore_GetByID(t *testing.T) {
+	ctx, store, _ := setupEventStore(t)
+
+	t.Run("retrieves event by ID", func(t *testing.T) {
+		event := newTeamRegisteredEvent(t, "team-getbyid", "GetByID Team", "#getbyid", "daily", time.Now())
+		testutil.AssertNoError(t, store.Append(ctx, event), "Append")
+
+		retrieved, err := store.GetByID(ctx, event.ID)
+		testutil.AssertNoError(t, err, "GetByID")
+
+		if retrieved == nil {
+			t.Fatal("GetByID() returned nil event")
+		}
+
+		testutil.AssertEqual(t, retrieved.ID, event.ID, "Event ID")
+		testutil.AssertEqual(t, retrieved.Type, event.Type, "Event type")
+		testutil.AssertEqual(t, retrieved.AggregateID, event.AggregateID, "AggregateID")
+	})
+
+	t.Run("returns nil for non-existent ID", func(t *testing.T) {
+		retrieved, err := store.GetByID(ctx, "non-existent-id")
+		testutil.AssertNoError(t, err, "GetByID")
+
+		if retrieved != nil {
+			t.Errorf("GetByID() returned event for non-existent ID, want nil")
+		}
+	})
+}
+
+func TestPostgresStore_Subscribe(t *testing.T) {
+	ctx, store, _ := setupEventStore(t)
+
+	t.Run("receives events in real-time", func(t *testing.T) {
+		// Create a cancellable context for the subscription
+		subCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+
+		// Start subscription
+		eventsCh, err := store.Subscribe(subCtx, []string{})
+		testutil.AssertNoError(t, err, "Subscribe")
+
+		// Give the listener time to connect
+		time.Sleep(100 * time.Millisecond)
+
+		// Append an event
+		event := newTeamRegisteredEvent(t, "team-subscribe", "Subscribe Team", "#subscribe", "weekly", time.Now())
+		testutil.AssertNoError(t, store.Append(ctx, event), "Append")
+
+		// Wait for the event to be received
+		select {
+		case receivedEvent := <-eventsCh:
+			if receivedEvent == nil {
+				t.Fatal("Received nil event from subscription")
+			}
+			testutil.AssertEqual(t, receivedEvent.ID, event.ID, "Event ID")
+			testutil.AssertEqual(t, receivedEvent.Type, event.Type, "Event type")
+		case <-time.After(5 * time.Second):
+			t.Fatal("Timed out waiting for event from subscription")
+		}
+	})
+
+	t.Run("filters events by type", func(t *testing.T) {
+		subCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+
+		// Subscribe only to StatusUpdateSubmitted events
+		eventsCh, err := store.Subscribe(subCtx, []string{StatusUpdateSubmitted})
+		testutil.AssertNoError(t, err, "Subscribe")
+
+		time.Sleep(100 * time.Millisecond)
+
+		// Append a TeamRegistered event (should be filtered out)
+		teamEvent := newTeamRegisteredEvent(t, "team-filter", "Filter Team", "#filter", "daily", time.Now())
+		testutil.AssertNoError(t, store.Append(ctx, teamEvent), "Append team event")
+
+		// Append a StatusUpdateSubmitted event (should be received)
+		updateEvent := newStatusUpdateEvent(t, "team-filter", "Update content", "Author", "U123", time.Now())
+		testutil.AssertNoError(t, store.Append(ctx, updateEvent), "Append update event")
+
+		// Should receive only the status update
+		select {
+		case receivedEvent := <-eventsCh:
+			if receivedEvent == nil {
+				t.Fatal("Received nil event from subscription")
+			}
+			testutil.AssertEqual(t, receivedEvent.Type, StatusUpdateSubmitted, "Event type should be StatusUpdateSubmitted")
+		case <-time.After(5 * time.Second):
+			t.Fatal("Timed out waiting for status update event")
+		}
+
+		// Verify no more events are received (team event was filtered)
+		select {
+		case evt := <-eventsCh:
+			t.Fatalf("Should not receive TeamRegistered event, got: %v", evt.Type)
+		case <-time.After(500 * time.Millisecond):
+			// Good - no additional events received
+		}
+	})
+
+	t.Run("closes channel on context cancellation", func(t *testing.T) {
+		subCtx, cancel := context.WithCancel(ctx)
+
+		eventsCh, err := store.Subscribe(subCtx, []string{})
+		testutil.AssertNoError(t, err, "Subscribe")
+
+		// Cancel context
+		cancel()
+
+		// Channel should be closed
+		select {
+		case _, ok := <-eventsCh:
+			if ok {
+				t.Error("Expected channel to be closed")
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel was not closed after context cancellation")
+		}
+	})
+}

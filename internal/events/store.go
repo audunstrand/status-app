@@ -12,6 +12,9 @@ type Store interface {
 	// GetByAggregateID retrieves all events for a specific aggregate
 	GetByAggregateID(ctx context.Context, aggregateID string) ([]*Event, error)
 
+	// GetByID retrieves a single event by its ID
+	GetByID(ctx context.Context, id string) (*Event, error)
+
 	// GetAll retrieves all events optionally filtered by type
 	GetAll(ctx context.Context, eventType string, offset, limit int) ([]*Event, error)
 
