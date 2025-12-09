@@ -119,6 +119,7 @@ func main() {
 	protectedMux.HandleFunc("POST /teams", handleRegisterTeam(cmdHandler))
 	protectedMux.HandleFunc("GET /teams", handleGetTeams(repo))
 	protectedMux.HandleFunc("GET /teams/{id}", handleGetTeam(repo))
+	protectedMux.HandleFunc("PATCH /teams/{id}", handleUpdateTeamName(cmdHandler, repo))
 	protectedMux.HandleFunc("POST /teams/{id}/updates", handleSubmitUpdate(cmdHandler))
 	protectedMux.HandleFunc("GET /teams/{id}/updates", handleGetTeamUpdates(repo))
 	protectedMux.HandleFunc("GET /updates", handleGetRecentUpdates(repo))
@@ -264,6 +265,66 @@ func handleGetTeam(repo *projections.Repository) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(team)
+	}
+}
+
+type UpdateTeamNameRequest struct {
+	Name string `json:"name"`
+}
+
+func (r *UpdateTeamNameRequest) Validate() error {
+	if r.Name == "" {
+		return errors.New("name is required")
+	}
+	return nil
+}
+
+func handleUpdateTeamName(handler *commands.Handler, repo *projections.Repository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		teamID := r.PathValue("id")
+		if teamID == "" {
+			jsonError(w, "team ID is required", http.StatusBadRequest)
+			return
+		}
+
+		var req UpdateTeamNameRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			jsonError(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if err := req.Validate(); err != nil {
+			jsonError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Get current team info to preserve other fields
+		team, err := repo.GetTeam(r.Context(), teamID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				jsonError(w, "team not found", http.StatusNotFound)
+				return
+			}
+			jsonError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		cmd := commands.UpdateTeam{
+			TeamID:       teamID,
+			Name:         req.Name,
+			SlackChannel: team.SlackChannel,
+			PollSchedule: team.PollSchedule,
+		}
+
+		if err := handler.Handle(r.Context(), cmd); err != nil {
+			jsonError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "success",
+		})
 	}
 }
 

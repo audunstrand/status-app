@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -62,12 +63,22 @@ func main() {
 				bot.handleEvent(eventsAPIEvent)
 
 			case socketmode.EventTypeSlashCommand:
-				// Handle slash commands
+				cmd, ok := evt.Data.(slack.SlashCommand)
+				if !ok {
+					continue
+				}
+
 				client.Ack(*evt.Request)
+				bot.handleSlashCommand(cmd)
 
 			case socketmode.EventTypeInteractive:
-				// Handle interactive components
+				callback, ok := evt.Data.(slack.InteractionCallback)
+				if !ok {
+					continue
+				}
+
 				client.Ack(*evt.Request)
+				bot.handleInteractive(callback)
 			}
 		}
 	}()
@@ -187,4 +198,120 @@ func (bot *SlackBot) sendSlackMessage(channel, message string) {
 	if err != nil {
 		log.Printf("Failed to send Slack message: %v", err)
 	}
+}
+
+func (bot *SlackBot) handleSlashCommand(cmd slack.SlashCommand) {
+	log.Printf("Received slash command: %s from user %s in channel %s", cmd.Command, cmd.UserID, cmd.ChannelID)
+
+	switch cmd.Command {
+	case "/set-team-name":
+		bot.openTeamNameModal(cmd)
+	default:
+		bot.slackAPI.PostEphemeral(
+			cmd.ChannelID,
+			cmd.UserID,
+			slack.MsgOptionText("Unknown command", false),
+		)
+	}
+}
+
+func (bot *SlackBot) handleInteractive(callback slack.InteractionCallback) {
+	log.Printf("Received interactive callback: %s", callback.Type)
+
+	switch callback.Type {
+	case slack.InteractionTypeViewSubmission:
+		if callback.View.CallbackID == "set_team_name" {
+			bot.handleTeamNameSubmission(callback)
+		}
+	}
+}
+
+func (bot *SlackBot) openTeamNameModal(cmd slack.SlashCommand) {
+	modalRequest := slack.ModalViewRequest{
+		Type: slack.VTModal,
+		Title: &slack.TextBlockObject{
+			Type: slack.PlainTextType,
+			Text: "Set Team Name",
+		},
+		Close: &slack.TextBlockObject{
+			Type: slack.PlainTextType,
+			Text: "Cancel",
+		},
+		Submit: &slack.TextBlockObject{
+			Type: slack.PlainTextType,
+			Text: "Save",
+		},
+		Blocks: slack.Blocks{
+			BlockSet: []slack.Block{
+				slack.NewInputBlock(
+					"team_name_block",
+					&slack.TextBlockObject{
+						Type: slack.PlainTextType,
+						Text: "Team Name",
+					},
+					nil,
+					&slack.PlainTextInputBlockElement{
+						Type:        slack.METPlainTextInput,
+						ActionID:    "team_name_input",
+						Placeholder: &slack.TextBlockObject{Type: slack.PlainTextType, Text: "Enter team name"},
+					},
+				),
+			},
+		},
+		CallbackID: "set_team_name",
+		PrivateMetadata: cmd.ChannelID,
+	}
+
+	_, err := bot.slackAPI.OpenView(cmd.TriggerID, modalRequest)
+	if err != nil {
+		log.Printf("Failed to open modal: %v", err)
+	}
+}
+
+func (bot *SlackBot) handleTeamNameSubmission(callback slack.InteractionCallback) {
+	channelID := callback.View.PrivateMetadata
+	teamName := callback.View.State.Values["team_name_block"]["team_name_input"].Value
+
+	ctx := context.Background()
+	if err := bot.updateTeamName(ctx, channelID, teamName); err != nil {
+		log.Printf("Failed to update team name: %v", err)
+		bot.sendSlackMessage(channelID, "❌ Failed to update team name. Please try again.")
+		return
+	}
+
+	log.Printf("Successfully updated team name for channel %s to '%s'", channelID, teamName)
+	bot.sendSlackMessage(channelID, fmt.Sprintf("✅ Team name updated to '%s'", teamName))
+}
+
+func (bot *SlackBot) updateTeamName(ctx context.Context, channelID, teamName string) error {
+	payload := map[string]string{
+		"name": teamName,
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	url := bot.cfg.CommandsURL + "/teams/" + channelID
+	req, err := http.NewRequestWithContext(ctx, "PATCH", url, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+bot.cfg.APISecret)
+
+	resp, err := bot.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Failed to update team name: status %d", resp.StatusCode)
+		return fmt.Errorf("server returned status %d", resp.StatusCode)
+	}
+
+	return nil
 }
