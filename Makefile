@@ -13,6 +13,7 @@ build:
 	@go build -o bin/backend ./cmd/backend
 	@go build -o bin/slackbot ./cmd/slackbot
 	@go build -o bin/scheduler ./cmd/scheduler
+	@go build -o bin/migrate ./cmd/migrate
 	@echo "Built all services to bin/"
 
 test:

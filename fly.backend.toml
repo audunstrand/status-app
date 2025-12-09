@@ -7,8 +7,12 @@ primary_region = "arn"  # Stockholm, Sweden - closest to Norway
   [build.args]
     SERVICE = "backend"
 
+[deploy]
+  release_command = "/bin/migrate"
+
 [env]
   PORT = "8080"
+  MIGRATIONS_PATH = "file:///migrations"
 
 [http_service]
   internal_port = 8080

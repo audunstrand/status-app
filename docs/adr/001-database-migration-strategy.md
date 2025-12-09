@@ -1,7 +1,7 @@
 # ADR 001: Database Migration Strategy
 
 **Date**: 2025-12-09  
-**Status**: Proposed
+**Status**: Accepted
 
 ## Context
 
@@ -9,7 +9,7 @@ We currently run database migrations manually via `psql` on Fly.io. This is erro
 
 ## Decision
 
-We need to choose an approach for automated database migrations.
+**Use golang-migrate/migrate library with Fly.io release commands for automatic migration on deployment.**
 
 ## Options Considered
 
@@ -30,7 +30,7 @@ We need to choose an approach for automated database migrations.
 - Need to maintain our own migration runner
 - Less battle-tested than existing tools
 
-### Option 2: golang-migrate/migrate Library
+### Option 2: golang-migrate/migrate Library ✅ **CHOSEN**
 
 **Description**: Use the popular `golang-migrate/migrate` library (https://github.com/golang-migrate/migrate)
 
@@ -47,7 +47,7 @@ We need to choose an approach for automated database migrations.
 - Need to wrap in our own service for Fly.io deployment
 - Learning curve for library API
 
-### Option 3: Fly.io Release Command
+### Option 3: Fly.io Release Command ✅ **CHOSEN**
 
 **Description**: Use Fly.io's release command feature to run migrations before each deployment
 
@@ -61,25 +61,27 @@ We need to choose an approach for automated database migrations.
 - Blocks deployment if migrations fail (could be pro or con)
 - Less control over when migrations run
 
-## Recommendation
+## Rationale
 
-**Option 1: Custom Go Migration Service** combined with **Option 3: Fly.io Release Command**
+**Option 2 + Option 3**: golang-migrate library with automatic release commands
 
-**Rationale**:
-- Keeps dependencies minimal
-- Simple, understandable implementation
-- Our migration needs are straightforward (sequential SQL files)
-- Can evolve to Option 2 later if needs grow
-- Fly.io release command provides automation
+- Battle-tested and reliable
+- Automatic migration on every deployment
+- Handles edge cases we might miss in custom implementation
+- Active maintenance and community support
+- Blocks bad deployments if migrations fail (safety feature)
 
-**Implementation**:
-1. Build custom migration service in `cmd/migrate`
-2. Reads `.up.sql` and `.down.sql` files from `/migrations`
-3. Tracks applied migrations in `schema_migrations` table
-4. Deploy as Fly.io release command (runs before each deployment)
+## Implementation Plan
 
-## Questions for Review
+1. Add `github.com/golang-migrate/migrate/v4` dependency
+2. Create `cmd/migrate` service wrapping the library
+3. Configure Fly.io release command in `fly.backend.toml`
+4. Migrations run automatically before each backend deployment
 
-1. Do you prefer the custom solution or would you rather use `golang-migrate/migrate`?
-2. Should migrations run automatically as release commands, or manually via `fly deploy -c fly.migrate.toml`?
-3. Any concerns about the proposed approach?
+## Consequences
+
+- **Positive**: Migrations automated, reliable, and battle-tested
+- **Positive**: Deployment blocked if migrations fail (prevents bad state)
+- **Negative**: Additional dependency to maintain (mitigated by active project)
+- **Negative**: Deployment slightly slower due to migration step
+
