@@ -51,43 +51,21 @@ None - test coverage goals achieved!
 
 ---
 
-### 1. Real-Time Projections (1h)
+### 1. Real-Time Projections ✅ COMPLETE
 
-**Current**: Projections poll every few seconds  
-**Goal**: Update immediately when events are written
+**Status**: ✅ COMPLETE (2025-12-09)
 
-**Implementation**:
-```go
-// internal/events/postgres_store.go
-func (s *PostgresStore) Subscribe(ctx context.Context, eventTypes []string) (<-chan *Event, error) {
-    listener := pq.NewListener(s.connStr, 10*time.Second, time.Minute, nil)
-    listener.Listen("events")
-    
-    ch := make(chan *Event)
-    go func() {
-        for {
-            select {
-            case n := <-listener.Notify:
-                event, _ := s.GetByID(ctx, n.Extra)
-                if event != nil {
-                    ch <- event
-                }
-            case <-ctx.Done():
-                listener.Close()
-                close(ch)
-                return
-            }
-        }
-    }()
-    return ch, nil
-}
-```
+**What was done**:
+1. ✅ Stored connection string in PostgresStore struct
+2. ✅ Added `GetByID(id string)` method to retrieve events by ID
+3. ✅ Implemented real-time Subscribe() using PostgreSQL LISTEN/NOTIFY with pq.NewListener
+4. ✅ Fixed NOTIFY statement syntax with UUID validation for security
+5. ✅ Added comprehensive tests for Subscribe and GetByID
+6. ✅ Created integration tests demonstrating real-time projection updates
+7. ✅ Implemented proper context handling for goroutines
+8. ✅ Updated all mock implementations
 
-**Steps**:
-1. Add `GetByID(id string)` to postgres_store.go
-2. Store connection string in PostgresStore
-3. Replace stub Subscribe() with pq.NewListener
-4. Test: submit update, verify projection updates without delay
+**Result**: Projections now update immediately when events are written (no polling delay).
 
 ---
 
@@ -158,6 +136,13 @@ if _, err := s.db.ExecContext(ctx, "NOTIFY events, $1", event.ID); err != nil {
 
 ## Summary
 
-**Total remaining work**: ~2.5 hours
+**Total remaining work**: ~1.5 hours (Real-Time Projections ✅ complete)
+
+**Completed**:
+- ✅ Real-Time Projections (replaced polling with LISTEN/NOTIFY)
+
+**Remaining**:
+- 🚧 Scheduler Reminders (1h)
+- 🚧 Minor Fixes (30m)
 
 Once complete, the app will be 100% feature-complete.
