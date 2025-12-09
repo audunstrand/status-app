@@ -6,10 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"regexp"
 	"time"
 
 	"github.com/lib/pq"
 )
+
+// validUUID is a regex pattern for UUID validation
+var validUUID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 type PostgresStore struct {
 	db      *sql.DB
@@ -57,9 +61,14 @@ func (s *PostgresStore) Append(ctx context.Context, event *Event) error {
 	}
 
 	// Notify listeners (PostgreSQL NOTIFY)
-	// NOTIFY doesn't support parameterized queries, so we use a constant channel name
-	if _, err := s.db.ExecContext(ctx, fmt.Sprintf("NOTIFY events, '%s'", event.ID)); err != nil {
-		log.Printf("Warning: failed to notify listeners: %v", err)
+	// Validate event.ID is a proper UUID to prevent SQL injection
+	if !validUUID.MatchString(event.ID) {
+		log.Printf("Warning: event ID %s is not a valid UUID, skipping NOTIFY", event.ID)
+	} else {
+		// NOTIFY doesn't support parameterized queries, but we've validated the UUID format
+		if _, err := s.db.ExecContext(ctx, fmt.Sprintf("NOTIFY events, '%s'", event.ID)); err != nil {
+			log.Printf("Warning: failed to notify listeners: %v", err)
+		}
 	}
 
 	return nil
@@ -178,7 +187,12 @@ func (s *PostgresStore) Subscribe(ctx context.Context, eventTypes []string) (<-c
 			case n := <-listener.Notify:
 				if n != nil {
 					// n.Extra contains the event ID
-					event, err := s.GetByID(ctx, n.Extra)
+					// Use a separate context with timeout for fetching the event
+					// to avoid blocking if the parent context is cancelled
+					fetchCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					event, err := s.GetByID(fetchCtx, n.Extra)
+					cancel()
+					
 					if err != nil {
 						log.Printf("Failed to get event %s: %v", n.Extra, err)
 						continue

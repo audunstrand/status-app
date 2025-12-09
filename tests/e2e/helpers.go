@@ -59,6 +59,40 @@ func (s *testEventStore) GetByAggregateID(ctx context.Context, aggregateID strin
 	return scanEvents(rows)
 }
 
+func (s *testEventStore) GetByID(ctx context.Context, id string) (*events.Event, error) {
+	query := `
+		SELECT id, type, aggregate_id, data, timestamp, metadata, version
+		FROM events
+		WHERE id = $1
+	`
+	row := s.db.QueryRowContext(ctx, query, id)
+
+	var event events.Event
+	var metadata sql.NullString
+
+	err := row.Scan(
+		&event.ID,
+		&event.Type,
+		&event.AggregateID,
+		&event.Data,
+		&event.Timestamp,
+		&metadata,
+		&event.Version,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if metadata.Valid {
+		event.Metadata = json.RawMessage(metadata.String)
+	}
+
+	return &event, nil
+}
+
 func (s *testEventStore) GetAll(ctx context.Context, eventType string, offset, limit int) ([]*events.Event, error) {
 	var query string
 	var args []interface{}
