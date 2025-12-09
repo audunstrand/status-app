@@ -22,15 +22,11 @@ import (
 
 // Request types for commands
 type SubmitStatusUpdateRequest struct {
-	TeamID  string `json:"team_id"`
 	Content string `json:"content"`
 	Author  string `json:"author"`
 }
 
 func (r *SubmitStatusUpdateRequest) Validate() error {
-	if r.TeamID == "" {
-		return errors.New("team_id is required")
-	}
 	if r.Content == "" {
 		return errors.New("content is required")
 	}
@@ -118,18 +114,15 @@ func main() {
 	log.Println("API authentication enabled")
 	protectedMux := http.NewServeMux()
 
-	// Command endpoints
-	protectedMux.HandleFunc("/commands/submit-update", handleSubmitUpdate(cmdHandler))
-	protectedMux.HandleFunc("/commands/register-team", handleRegisterTeam(cmdHandler))
+	// RESTful API endpoints
+	protectedMux.HandleFunc("POST /teams", handleRegisterTeam(cmdHandler))
+	protectedMux.HandleFunc("GET /teams", handleGetTeams(repo))
+	protectedMux.HandleFunc("GET /teams/{id}", handleGetTeam(repo))
+	protectedMux.HandleFunc("POST /teams/{id}/updates", handleSubmitUpdate(cmdHandler))
+	protectedMux.HandleFunc("GET /teams/{id}/updates", handleGetTeamUpdates(repo))
+	protectedMux.HandleFunc("GET /updates", handleGetRecentUpdates(repo))
 
-	// API endpoints
-	protectedMux.HandleFunc("/api/teams", handleGetTeams(repo))
-	protectedMux.HandleFunc("/api/teams/{id}", handleGetTeam(repo))
-	protectedMux.HandleFunc("/api/updates", handleGetRecentUpdates(repo))
-	protectedMux.HandleFunc("/api/teams/{id}/updates", handleGetTeamUpdates(repo))
-
-	mux.Handle("/commands/", auth.RequireAPIKey(cfg.APISecret)(protectedMux))
-	mux.Handle("/api/", auth.RequireAPIKey(cfg.APISecret)(protectedMux))
+	mux.Handle("/", auth.RequireAPIKey(cfg.APISecret)(protectedMux))
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -166,8 +159,9 @@ func jsonError(w http.ResponseWriter, message string, code int) {
 // Command handlers
 func handleSubmitUpdate(handler *commands.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		teamID := r.PathValue("id")
+		if teamID == "" {
+			jsonError(w, "team ID is required", http.StatusBadRequest)
 			return
 		}
 
@@ -183,7 +177,7 @@ func handleSubmitUpdate(handler *commands.Handler) http.HandlerFunc {
 		}
 
 		cmd := commands.SubmitStatusUpdate{
-			TeamID:    req.TeamID,
+			TeamID:    teamID,
 			Content:   req.Content,
 			Author:    req.Author,
 			SlackUser: req.Author,
@@ -205,11 +199,6 @@ func handleSubmitUpdate(handler *commands.Handler) http.HandlerFunc {
 
 func handleRegisterTeam(handler *commands.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
 		var req RegisterTeamRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			jsonError(w, "invalid request body", http.StatusBadRequest)

@@ -17,11 +17,6 @@ import (
 	"github.com/yourusername/status-app/internal/config"
 )
 
-const (
-	// submitUpdateEndpoint is the API endpoint for submitting status updates
-	submitUpdateEndpoint = "/commands/submit-update"
-)
-
 type SlackBot struct {
 	cfg       *config.Config
 	client    *http.Client
@@ -140,7 +135,6 @@ func (bot *SlackBot) handleEvent(event slackevents.EventsAPIEvent) {
 
 func (bot *SlackBot) sendStatusUpdate(ctx context.Context, teamID, content, author string) error {
 	payload := map[string]string{
-		"team_id": teamID,
 		"content": content,
 		"author":  author,
 	}
@@ -150,7 +144,8 @@ func (bot *SlackBot) sendStatusUpdate(ctx context.Context, teamID, content, auth
 		return err
 	}
 	
-	req, err := http.NewRequestWithContext(ctx, "POST", bot.cfg.CommandsURL+submitUpdateEndpoint, bytes.NewBuffer(body))
+	url := bot.cfg.CommandsURL + "/teams/" + teamID + "/updates"
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}

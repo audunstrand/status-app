@@ -14,25 +14,14 @@ func TestSubmitStatusUpdateRequest_Validate(t *testing.T) {
 		{
 			name: "valid request",
 			req: SubmitStatusUpdateRequest{
-				TeamID:  "team-1",
 				Content: "Fixed the bug",
 				Author:  "John Doe",
 			},
 			wantErr: false,
 		},
 		{
-			name: "missing team ID",
-			req: SubmitStatusUpdateRequest{
-				Content: "Fixed the bug",
-				Author:  "John Doe",
-			},
-			wantErr: true,
-			errMsg:  "team_id is required",
-		},
-		{
 			name: "missing content",
 			req: SubmitStatusUpdateRequest{
-				TeamID: "team-1",
 				Author: "John Doe",
 			},
 			wantErr: true,
@@ -41,7 +30,6 @@ func TestSubmitStatusUpdateRequest_Validate(t *testing.T) {
 		{
 			name: "content too long",
 			req: SubmitStatusUpdateRequest{
-				TeamID:  "team-1",
 				Content: string(make([]byte, 501)),
 				Author:  "John Doe",
 			},
@@ -51,7 +39,6 @@ func TestSubmitStatusUpdateRequest_Validate(t *testing.T) {
 		{
 			name: "missing author",
 			req: SubmitStatusUpdateRequest{
-				TeamID:  "team-1",
 				Content: "Fixed the bug",
 			},
 			wantErr: true,
@@ -60,7 +47,6 @@ func TestSubmitStatusUpdateRequest_Validate(t *testing.T) {
 		{
 			name: "exactly 500 characters - valid",
 			req: SubmitStatusUpdateRequest{
-				TeamID:  "team-1",
 				Content: string(make([]byte, 500)),
 				Author:  "John Doe",
 			},

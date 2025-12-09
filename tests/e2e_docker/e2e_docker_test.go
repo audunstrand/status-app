@@ -72,7 +72,6 @@ func TestDockerE2E_SubmitStatusUpdate(t *testing.T) {
 
 	// Test submitting a status update
 	payload := map[string]string{
-		"team_id": "team-123",
 		"content": "Working on Docker E2E tests",
 		"author":  "test-user",
 	}
@@ -82,7 +81,7 @@ func TestDockerE2E_SubmitStatusUpdate(t *testing.T) {
 		t.Fatalf("Failed to marshal payload: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", commandsURL+"/commands/submit-update", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", commandsURL+"/teams/team-123/updates", bytes.NewBuffer(body))
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -114,7 +113,6 @@ func TestDockerE2E_AuthenticationRequired(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	payload := map[string]string{
-		"team_id": "team-123",
 		"content": "Test content",
 		"author":  "test-user",
 	}
@@ -122,7 +120,7 @@ func TestDockerE2E_AuthenticationRequired(t *testing.T) {
 	body, _ := json.Marshal(payload)
 
 	// Request without authentication
-	req, _ := http.NewRequest("POST", commandsURL+"/commands/submit-update", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", commandsURL+"/teams/team-123/updates", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
@@ -159,7 +157,7 @@ func TestDockerE2E_APIEndpoints(t *testing.T) {
 	}
 
 	// Test teams endpoint (with auth)
-	req, _ := http.NewRequest("GET", apiURL+"/api/teams", nil)
+	req, _ := http.NewRequest("GET", apiURL+"/teams", nil)
 	req.Header.Set("Authorization", "Bearer "+apiAuthToken)
 
 	resp2, err := client.Do(req)
@@ -174,7 +172,7 @@ func TestDockerE2E_APIEndpoints(t *testing.T) {
 	}
 
 	// Test teams endpoint (without auth)
-	resp3, err := client.Get(apiURL + "/api/teams")
+	resp3, err := client.Get(apiURL + "/teams")
 	if err != nil {
 		t.Fatalf("Failed to get teams: %v", err)
 	}
@@ -203,13 +201,12 @@ func TestDockerE2E_EndToEndFlow(t *testing.T) {
 
 	// Step 1: Submit a status update
 	updatePayload := map[string]string{
-		"team_id": "team-e2e",
 		"content": "End-to-end test update",
 		"author":  "e2e-tester",
 	}
 
 	body, _ := json.Marshal(updatePayload)
-	req, _ := http.NewRequest("POST", commandsURL+"/commands/submit-update", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", commandsURL+"/teams/team-e2e/updates", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+commandsAuthToken)
 
@@ -227,7 +224,7 @@ func TestDockerE2E_EndToEndFlow(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Step 3: Query updates via API
-	req2, _ := http.NewRequest("GET", apiURL+"/api/updates", nil)
+	req2, _ := http.NewRequest("GET", apiURL+"/updates", nil)
 	req2.Header.Set("Authorization", "Bearer "+apiAuthToken)
 
 	resp2, err := client.Do(req2)
