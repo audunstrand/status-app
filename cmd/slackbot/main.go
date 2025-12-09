@@ -98,15 +98,16 @@ func (bot *SlackBot) handleEvent(event slackevents.EventsAPIEvent) {
 		case *slackevents.AppMentionEvent:
 			log.Printf("Bot mentioned by user %s in channel %s: %s", ev.User, ev.Channel, ev.Text)
 			
-			teamID := ev.Channel
+			channelID := ev.Channel
+			channelName := bot.getChannelName(channelID)
 			
-			if err := bot.sendStatusUpdate(ctx, teamID, ev.Text, ev.User); err != nil {
+			if err := bot.sendStatusUpdate(ctx, channelID, channelName, ev.Text, ev.User); err != nil {
 				log.Printf("Failed to send status update: %v", err)
 				bot.sendSlackMessage(ev.Channel, "❌ Failed to record your status update. Please try again.")
 				return
 			}
 			
-			log.Printf("Successfully submitted status update for team %s", teamID)
+			log.Printf("Successfully submitted status update for team %s", channelID)
 			bot.sendSlackMessage(ev.Channel, "✅ Status update recorded!")
 			
 		case *slackevents.MessageEvent:
@@ -117,26 +118,27 @@ func (bot *SlackBot) handleEvent(event slackevents.EventsAPIEvent) {
 			
 			log.Printf("Received message from user %s in channel %s: %s", ev.User, ev.Channel, ev.Text)
 			
-			// Map channel to team ID (using channel ID as team ID for now)
-			teamID := ev.Channel
+			channelID := ev.Channel
+			channelName := bot.getChannelName(channelID)
 			
 			// Send status update to Commands service
-			if err := bot.sendStatusUpdate(ctx, teamID, ev.Text, ev.User); err != nil {
+			if err := bot.sendStatusUpdate(ctx, channelID, channelName, ev.Text, ev.User); err != nil {
 				log.Printf("Failed to send status update: %v", err)
 				bot.sendSlackMessage(ev.Channel, "❌ Failed to record your status update. Please try again.")
 				return
 			}
 			
-			log.Printf("Successfully submitted status update for team %s", teamID)
+			log.Printf("Successfully submitted status update for team %s", channelID)
 			bot.sendSlackMessage(ev.Channel, "✅ Status update recorded!")
 		}
 	}
 }
 
-func (bot *SlackBot) sendStatusUpdate(ctx context.Context, teamID, content, author string) error {
+func (bot *SlackBot) sendStatusUpdate(ctx context.Context, channelID, channelName, content, author string) error {
 	payload := map[string]string{
-		"content": content,
-		"author":  author,
+		"content":      content,
+		"author":       author,
+		"channel_name": channelName,
 	}
 	
 	body, err := json.Marshal(payload)
@@ -144,7 +146,7 @@ func (bot *SlackBot) sendStatusUpdate(ctx context.Context, teamID, content, auth
 		return err
 	}
 	
-	url := bot.cfg.CommandsURL + "/teams/" + teamID + "/updates"
+	url := bot.cfg.CommandsURL + "/teams/" + channelID + "/updates"
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		return err
@@ -164,6 +166,17 @@ func (bot *SlackBot) sendStatusUpdate(ctx context.Context, teamID, content, auth
 	}
 	
 	return nil
+}
+
+func (bot *SlackBot) getChannelName(channelID string) string {
+	info, err := bot.slackAPI.GetConversationInfo(&slack.GetConversationInfoInput{
+		ChannelID: channelID,
+	})
+	if err != nil {
+		log.Printf("Failed to get channel info for %s: %v", channelID, err)
+		return channelID
+	}
+	return info.Name
 }
 
 func (bot *SlackBot) sendSlackMessage(channel, message string) {

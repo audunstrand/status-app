@@ -63,6 +63,32 @@ func (h *Handler) createAndAppendEvent(
 }
 
 func (h *Handler) handleSubmitStatusUpdate(ctx context.Context, cmd SubmitStatusUpdate) error {
+	// Check if team exists by looking for any events with this aggregate ID
+	existingEvents, err := h.eventStore.GetByAggregateID(ctx, cmd.TeamID)
+	if err != nil {
+		return fmt.Errorf("failed to check for existing team: %w", err)
+	}
+
+	// If no events exist for this team, auto-register it
+	if len(existingEvents) == 0 {
+		teamName := cmd.ChannelName
+		if teamName == "" {
+			teamName = cmd.TeamID
+		}
+
+		registerData := events.TeamRegisteredData{
+			TeamID:       cmd.TeamID,
+			Name:         teamName,
+			SlackChannel: cmd.TeamID,
+			PollSchedule: "",
+		}
+
+		if err := h.createAndAppendEvent(ctx, events.TeamRegistered, cmd.TeamID, registerData); err != nil {
+			return fmt.Errorf("failed to auto-register team: %w", err)
+		}
+	}
+
+	// Submit the status update
 	data := events.StatusUpdateSubmittedData{
 		UpdateID:  uuid.New().String(),
 		TeamID:    cmd.TeamID,

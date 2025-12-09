@@ -8,11 +8,12 @@ type Command interface {
 
 // SubmitStatusUpdate command
 type SubmitStatusUpdate struct {
-	TeamID    string
-	Content   string
-	Author    string
-	SlackUser string
-	Timestamp time.Time
+	TeamID      string
+	ChannelName string
+	Content     string
+	Author      string
+	SlackUser   string
+	Timestamp   time.Time
 }
 
 // RegisterTeam command

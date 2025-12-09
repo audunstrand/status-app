@@ -22,8 +22,9 @@ import (
 
 // Request types for commands
 type SubmitStatusUpdateRequest struct {
-	Content string `json:"content"`
-	Author  string `json:"author"`
+	Content     string `json:"content"`
+	Author      string `json:"author"`
+	ChannelName string `json:"channel_name"`
 }
 
 func (r *SubmitStatusUpdateRequest) Validate() error {
@@ -177,11 +178,12 @@ func handleSubmitUpdate(handler *commands.Handler) http.HandlerFunc {
 		}
 
 		cmd := commands.SubmitStatusUpdate{
-			TeamID:    teamID,
-			Content:   req.Content,
-			Author:    req.Author,
-			SlackUser: req.Author,
-			Timestamp: time.Now(),
+			TeamID:      teamID,
+			ChannelName: req.ChannelName,
+			Content:     req.Content,
+			Author:      req.Author,
+			SlackUser:   req.Author,
+			Timestamp:   time.Now(),
 		}
 
 		if err := handler.Handle(r.Context(), cmd); err != nil {
