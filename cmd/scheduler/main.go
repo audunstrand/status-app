@@ -1,17 +1,23 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/robfig/cron/v3"
+	"github.com/slack-go/slack"
 	"github.com/yourusername/status-app/internal/config"
 	"github.com/yourusername/status-app/internal/projections"
+	"github.com/yourusername/status-app/internal/scheduler"
 )
 
 func main() {
@@ -32,12 +38,15 @@ func main() {
 
 	repo := projections.NewRepository(db)
 
+	// Initialize Slack client
+	slackAPI := slack.New(cfg.SlackBotToken)
+
 	// Setup cron scheduler
 	c := cron.New()
 
 	// Check for teams to poll every hour
 	c.AddFunc("@hourly", func() {
-		checkAndSendReminders(ctx, repo)
+		checkAndSendReminders(ctx, repo, slackAPI, cfg)
 	})
 
 	c.Start()
@@ -52,16 +61,74 @@ func main() {
 	c.Stop()
 }
 
-func checkAndSendReminders(ctx context.Context, repo *projections.Repository) {
+func checkAndSendReminders(ctx context.Context, repo *projections.Repository, slackAPI *slack.Client, cfg *config.Config) {
 	teams, err := repo.GetAllTeams(ctx)
 	if err != nil {
 		log.Printf("Failed to get teams: %v", err)
 		return
 	}
 
+	now := time.Now()
 	for _, team := range teams {
-		// TODO: Check if team is due for a reminder based on poll_schedule
-		// TODO: Send command to send reminder
-		log.Printf("Checking team %s for reminders", team.Name)
+		if scheduler.ShouldRemind(team.PollSchedule, team.LastRemindedAt, now) {
+			log.Printf("Sending reminder to team %s (%s)", team.Name, team.TeamID)
+			
+			if err := sendSlackReminder(slackAPI, team.SlackChannel, team.Name); err != nil {
+				log.Printf("Failed to send Slack message to team %s: %v", team.Name, err)
+				continue
+			}
+			
+			if err := recordReminder(ctx, cfg, team.TeamID, team.SlackChannel); err != nil {
+				log.Printf("Failed to record reminder for team %s: %v", team.Name, err)
+				continue
+			}
+			
+			log.Printf("Successfully sent reminder to team %s", team.Name)
+		}
 	}
+}
+
+func sendSlackReminder(slackAPI *slack.Client, channelID, teamName string) error {
+	message := "🔔 Time for your status update!"
+	_, _, err := slackAPI.PostMessage(
+		channelID,
+		slack.MsgOptionText(message, false),
+	)
+	return err
+}
+
+func recordReminder(ctx context.Context, cfg *config.Config, teamID, slackChannel string) error {
+	payload := map[string]string{
+		"slack_channel": slackChannel,
+	}
+	
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	
+	url := cfg.CommandsURL + "/teams/" + teamID + "/reminders"
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+	
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+cfg.APISecret)
+	
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+	
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusCreated {
+		log.Printf("Failed to record reminder: status %d", resp.StatusCode)
+	}
+	
+	return nil
 }

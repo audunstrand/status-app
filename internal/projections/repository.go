@@ -27,6 +27,7 @@ func (r *Repository) scanTeam(scanner interface {
 		&team.PollSchedule,
 		&team.CreatedAt,
 		&team.UpdatedAt,
+		&team.LastRemindedAt,
 	)
 	return &team, err
 }
@@ -49,7 +50,7 @@ func (r *Repository) scanStatusUpdate(scanner interface {
 
 func (r *Repository) GetTeam(ctx context.Context, teamID string) (*Team, error) {
 	query := `
-		SELECT team_id, name, slack_channel, poll_schedule, created_at, updated_at
+		SELECT team_id, name, slack_channel, poll_schedule, created_at, updated_at, last_reminded_at
 		FROM teams
 		WHERE team_id = $1
 	`
@@ -58,7 +59,7 @@ func (r *Repository) GetTeam(ctx context.Context, teamID string) (*Team, error) 
 
 func (r *Repository) GetAllTeams(ctx context.Context) ([]*Team, error) {
 	query := `
-		SELECT team_id, name, slack_channel, poll_schedule, created_at, updated_at
+		SELECT team_id, name, slack_channel, poll_schedule, created_at, updated_at, last_reminded_at
 		FROM teams
 		ORDER BY name
 	`
