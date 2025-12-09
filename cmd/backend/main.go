@@ -121,7 +121,6 @@ func main() {
 	protectedMux.HandleFunc("POST /teams/{id}/updates", handleSubmitUpdate(cmdHandler))
 	protectedMux.HandleFunc("GET /teams/{id}/updates", handleGetTeamUpdates(repo))
 	protectedMux.HandleFunc("GET /updates", handleGetRecentUpdates(repo))
-	protectedMux.HandleFunc("POST /teams/{id}/reminders", handleSendReminder(cmdHandler))
 
 	mux.Handle("/", auth.RequireAPIKey(cfg.APISecret)(protectedMux))
 
@@ -294,53 +293,5 @@ func handleGetTeamUpdates(repo *projections.Repository) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(updates)
-	}
-}
-
-type SendReminderRequest struct {
-	SlackChannel string `json:"slack_channel"`
-}
-
-func (r *SendReminderRequest) Validate() error {
-	if r.SlackChannel == "" {
-		return errors.New("slack_channel is required")
-	}
-	return nil
-}
-
-func handleSendReminder(handler *commands.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		teamID := r.PathValue("id")
-		if teamID == "" {
-			jsonError(w, "team ID is required", http.StatusBadRequest)
-			return
-		}
-
-		var req SendReminderRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			jsonError(w, "invalid request body", http.StatusBadRequest)
-			return
-		}
-
-		if err := req.Validate(); err != nil {
-			jsonError(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		cmd := commands.SendReminder{
-			TeamID:       teamID,
-			SlackChannel: req.SlackChannel,
-		}
-
-		if err := handler.Handle(r.Context(), cmd); err != nil {
-			jsonError(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]string{
-			"status": "success",
-		})
 	}
 }

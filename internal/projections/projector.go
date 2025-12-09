@@ -160,16 +160,6 @@ func (p *Projector) handleTeamUpdated(ctx context.Context, event *events.Event) 
 }
 
 func (p *Projector) handleReminderSent(ctx context.Context, event *events.Event) error {
-	var data events.ReminderSentData
-	if err := json.Unmarshal(event.Data, &data); err != nil {
-		return fmt.Errorf("failed to unmarshal event data: %w", err)
-	}
-
-	query := `
-		UPDATE teams
-		SET last_reminded_at = $2
-		WHERE team_id = $1
-	`
-	_, err := p.db.ExecContext(ctx, query, data.TeamID, data.SentAt)
-	return err
+	// Could track reminder history in a separate table if needed
+	return nil
 }

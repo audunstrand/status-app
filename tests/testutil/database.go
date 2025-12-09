@@ -106,8 +106,7 @@ func (tdb *TestDB) RunMigrations() {
 		slack_channel VARCHAR(255) NOT NULL,
 		poll_schedule VARCHAR(100),
 		created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-		updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
-		last_reminded_at TIMESTAMP WITH TIME ZONE
+		updated_at TIMESTAMP WITH TIME ZONE NOT NULL
 	);
 
 	CREATE TABLE IF NOT EXISTS status_updates (

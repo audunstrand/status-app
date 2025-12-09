@@ -4,13 +4,12 @@ import "time"
 
 // Team represents the current state of a team
 type Team struct {
-	TeamID         string     `json:"team_id"`
-	Name           string     `json:"name"`
-	SlackChannel   string     `json:"slack_channel"`
-	PollSchedule   string     `json:"poll_schedule"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	LastRemindedAt *time.Time `json:"last_reminded_at,omitempty"`
+	TeamID       string    `json:"team_id"`
+	Name         string    `json:"name"`
+	SlackChannel string    `json:"slack_channel"`
+	PollSchedule string    `json:"poll_schedule"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // StatusUpdate represents a status update in the read model
