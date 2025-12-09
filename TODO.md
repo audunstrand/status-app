@@ -10,6 +10,8 @@
 - **Database consolidation** (2 databases → 1 database)
 - **Service consolidation** (5 services → 3 services)
 - **Test code refactoring** (reduced by 40%, improved quality)
+- **URL structure refactoring** (RESTful endpoints)
+- **Automated database migrations** (golang-migrate + Fly.io release commands)
 
 ## 🚧 To Implement
 
@@ -49,63 +51,7 @@ None - test coverage goals achieved!
 
 ---
 
-### 2. URL Structure Refactoring (1h)
-
-**Current**: URLs expose internal architecture
-- `/commands/submit-update` - reveals CQRS command handling
-- `/commands/register-team` - reveals implementation detail
-- `/api/teams` - reveals separate API layer
-- `/api/updates` - reveals query side
-
-**Goal**: URLs should reflect external domain model, not internal architecture
-
-**Proposed structure**:
-```
-POST   /teams              - Register a new team
-PUT    /teams/{id}         - Update team
-POST   /teams/{id}/updates - Submit status update
-GET    /teams              - List all teams
-GET    /teams/{id}         - Get team details
-GET    /teams/{id}/updates - Get team's updates
-GET    /updates            - Get recent updates
-```
-
-**Benefits**:
-- RESTful resource-based URLs
-- Hides internal CQRS/event sourcing implementation
-- Better API discoverability
-- Standard HTTP verbs for operations
-- Can change internal architecture without breaking API
-
-**Implementation**:
-- Update `cmd/backend/main.go` endpoint routing
-- Keep internal command/query handlers unchanged
-- Update Slackbot to use new URLs
-- Add URL versioning: `/v1/teams` for future compatibility
-
-**Estimated time**: 1 hour (routing changes + tests)
-
----
-
-### 3. Migration Service (30m)
-
-**Current**: Migrations run manually via psql  
-**Goal**: Automated migration runner as Fly.io service
-
-**Implementation**:
-- Create `cmd/migrate/main.go` that reads and executes SQL files from `/migrations`
-- Add `fly.migrate.toml` config for one-off deployment
-- Use golang-migrate library or custom SQL file executor
-- Run with: `fly deploy -c fly.migrate.toml`
-
-**Benefits**:
-- Version-controlled migrations
-- Automated on deploy
-- Repeatable and safe
-
----
-
-### 4. Real-Time Projections (1h)
+### 1. Real-Time Projections (1h)
 
 **Current**: Projections poll every few seconds  
 **Goal**: Update immediately when events are written
@@ -145,7 +91,7 @@ func (s *PostgresStore) Subscribe(ctx context.Context, eventTypes []string) (<-c
 
 ---
 
-### 5. Scheduler Reminders (1h)
+### 2. Scheduler Reminders (1h)
 
 **Current**: Scheduler runs but doesn't send reminders  
 **Goal**: Send Slack messages on schedule
@@ -187,7 +133,7 @@ func sendSlackReminder(channelID, teamName string) error {
 
 ---
 
-### 6. Minor Fixes (30m)
+### 3. Minor Fixes (30m)
 
 **Fix ignored NOTIFY error**:
 ```go
@@ -212,6 +158,6 @@ if _, err := s.db.ExecContext(ctx, "NOTIFY events, $1", event.ID); err != nil {
 
 ## Summary
 
-**Total remaining work**: ~3 hours
+**Total remaining work**: ~2.5 hours
 
 Once complete, the app will be 100% feature-complete.
