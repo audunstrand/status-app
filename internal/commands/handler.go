@@ -34,10 +34,6 @@ func (h *Handler) Handle(ctx context.Context, cmd Command) error {
 		return h.handleRegisterTeam(ctx, c)
 	case UpdateTeam:
 		return h.handleUpdateTeam(ctx, c)
-	case SchedulePoll:
-		return h.handleSchedulePoll(ctx, c)
-	case SendReminder:
-		return h.handleSendReminder(ctx, c)
 	default:
 		return fmt.Errorf("unknown command type: %T", cmd)
 	}
@@ -85,7 +81,6 @@ func (h *Handler) handleSubmitStatusUpdate(ctx context.Context, cmd SubmitStatus
 			TeamID:       cmd.TeamID,
 			Name:         teamName,
 			SlackChannel: cmd.TeamID,
-			PollSchedule: "",
 		}
 
 		if err := h.createAndAppendEvent(ctx, events.TeamRegistered, cmd.TeamID, registerData); err != nil {
@@ -113,7 +108,6 @@ func (h *Handler) handleRegisterTeam(ctx context.Context, cmd RegisterTeam) erro
 		TeamID:       teamID,
 		Name:         cmd.Name,
 		SlackChannel: cmd.SlackChannel,
-		PollSchedule: cmd.PollSchedule,
 	}
 
 	return h.createAndAppendEvent(ctx, events.TeamRegistered, teamID, data)
@@ -124,30 +118,7 @@ func (h *Handler) handleUpdateTeam(ctx context.Context, cmd UpdateTeam) error {
 		TeamID:       cmd.TeamID,
 		Name:         cmd.Name,
 		SlackChannel: cmd.SlackChannel,
-		PollSchedule: cmd.PollSchedule,
 	}
 
 	return h.createAndAppendEvent(ctx, events.TeamUpdated, cmd.TeamID, data)
-}
-
-func (h *Handler) handleSchedulePoll(ctx context.Context, cmd SchedulePoll) error {
-	data := events.PollScheduledData{
-		PollID:    uuid.New().String(),
-		TeamID:    cmd.TeamID,
-		DueDate:   cmd.DueDate,
-		Frequency: cmd.Frequency,
-	}
-
-	return h.createAndAppendEvent(ctx, events.PollScheduled, cmd.TeamID, data)
-}
-
-func (h *Handler) handleSendReminder(ctx context.Context, cmd SendReminder) error {
-	data := events.ReminderSentData{
-		ReminderID:   uuid.New().String(),
-		TeamID:       cmd.TeamID,
-		SlackChannel: cmd.SlackChannel,
-		SentAt:       time.Now(),
-	}
-
-	return h.createAndAppendEvent(ctx, events.ReminderSent, cmd.TeamID, data)
 }

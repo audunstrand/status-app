@@ -44,7 +44,6 @@ func TestProjectorSubscriptionRealtime(t *testing.T) {
 	registerCmd := commands.RegisterTeam{
 		Name:         "Engineering",
 		SlackChannel: "#engineering",
-		PollSchedule: "weekly",
 	}
 
 	err = cmdHandler.Handle(ctx, registerCmd)

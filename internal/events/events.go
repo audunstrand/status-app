@@ -20,8 +20,6 @@ type Event struct {
 const (
 	StatusUpdateSubmitted = "status_update.submitted"
 	TeamRegistered        = "team.registered"
-	PollScheduled         = "poll.scheduled" // TODO: Implement poll scheduling feature
-	ReminderSent          = "reminder.sent"  // TODO: Add reminder tracking in projections
 	TeamUpdated           = "team.updated"
 )
 
@@ -40,7 +38,6 @@ type TeamRegisteredData struct {
 	TeamID       string `json:"team_id"`
 	Name         string `json:"name"`
 	SlackChannel string `json:"slack_channel"`
-	PollSchedule string `json:"poll_schedule"` // cron format
 }
 
 // TeamUpdatedData represents the data for team updates
@@ -48,21 +45,4 @@ type TeamUpdatedData struct {
 	TeamID       string `json:"team_id"`
 	Name         string `json:"name"`
 	SlackChannel string `json:"slack_channel"`
-	PollSchedule string `json:"poll_schedule"` // cron format
-}
-
-// PollScheduledData represents scheduled poll information
-type PollScheduledData struct {
-	PollID    string    `json:"poll_id"`
-	TeamID    string    `json:"team_id"`
-	DueDate   time.Time `json:"due_date"`
-	Frequency string    `json:"frequency"`
-}
-
-// ReminderSentData represents a reminder sent to a team
-type ReminderSentData struct {
-	ReminderID   string    `json:"reminder_id"`
-	TeamID       string    `json:"team_id"`
-	SlackChannel string    `json:"slack_channel"`
-	SentAt       time.Time `json:"sent_at"`
 }

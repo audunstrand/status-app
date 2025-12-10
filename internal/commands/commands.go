@@ -40,7 +40,6 @@ func (c SubmitStatusUpdate) Validate() error {
 type RegisterTeam struct {
 	Name         string
 	SlackChannel string
-	PollSchedule string // cron format, e.g., "0 9 * * MON"
 }
 
 func (c RegisterTeam) Validate() error {
@@ -58,7 +57,6 @@ type UpdateTeam struct {
 	TeamID       string
 	Name         string
 	SlackChannel string
-	PollSchedule string
 }
 
 func (c UpdateTeam) Validate() error {
@@ -67,39 +65,6 @@ func (c UpdateTeam) Validate() error {
 	}
 	if c.Name == "" {
 		return errors.New("name is required")
-	}
-	if c.SlackChannel == "" {
-		return errors.New("slack_channel is required")
-	}
-	return nil
-}
-
-// SchedulePoll command
-type SchedulePoll struct {
-	TeamID    string
-	DueDate   time.Time
-	Frequency string
-}
-
-func (c SchedulePoll) Validate() error {
-	if c.TeamID == "" {
-		return errors.New("team_id is required")
-	}
-	if c.DueDate.IsZero() {
-		return errors.New("due_date is required")
-	}
-	return nil
-}
-
-// SendReminder command
-type SendReminder struct {
-	TeamID       string
-	SlackChannel string
-}
-
-func (c SendReminder) Validate() error {
-	if c.TeamID == "" {
-		return errors.New("team_id is required")
 	}
 	if c.SlackChannel == "" {
 		return errors.New("slack_channel is required")

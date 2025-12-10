@@ -43,7 +43,6 @@ func (r *SubmitStatusUpdateRequest) Validate() error {
 type RegisterTeamRequest struct {
 	Name         string `json:"name"`
 	SlackChannel string `json:"slack_channel"`
-	PollSchedule string `json:"poll_schedule"`
 }
 
 func (r *RegisterTeamRequest) Validate() error {
@@ -216,7 +215,6 @@ func handleRegisterTeam(handler *commands.Handler) http.HandlerFunc {
 		cmd := commands.RegisterTeam{
 			Name:         req.Name,
 			SlackChannel: req.SlackChannel,
-			PollSchedule: req.PollSchedule,
 		}
 
 		if err := handler.Handle(r.Context(), cmd); err != nil {
@@ -313,7 +311,6 @@ func handleUpdateTeamName(handler *commands.Handler, repo *projections.Repositor
 			TeamID:       teamID,
 			Name:         req.Name,
 			SlackChannel: team.SlackChannel,
-			PollSchedule: team.PollSchedule,
 		}
 
 		if err := handler.Handle(r.Context(), cmd); err != nil {

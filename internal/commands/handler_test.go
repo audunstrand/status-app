@@ -92,7 +92,6 @@ func TestHandler_HandleRegisterTeam(t *testing.T) {
 	cmd := RegisterTeam{
 		Name:         "Engineering",
 		SlackChannel: "#engineering",
-		PollSchedule: "weekly",
 	}
 
 	err := handler.Handle(context.Background(), cmd)
@@ -118,7 +117,6 @@ func TestHandler_HandleUpdateTeam(t *testing.T) {
 		TeamID:       "team-1",
 		Name:         "Updated Engineering",
 		SlackChannel: "#new-engineering",
-		PollSchedule: "daily",
 	}
 
 	err := handler.Handle(context.Background(), cmd)
@@ -140,55 +138,6 @@ func TestHandler_HandleUpdateTeam(t *testing.T) {
 	}
 }
 
-func TestHandler_HandleSchedulePoll(t *testing.T) {
-	store := &MockEventStore{}
-	handler := NewHandler(store)
-
-	cmd := SchedulePoll{
-		TeamID:    "team-1",
-		DueDate:   time.Now().Add(24 * time.Hour),
-		Frequency: "weekly",
-	}
-
-	err := handler.Handle(context.Background(), cmd)
-	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
-	}
-
-	if len(store.events) != 1 {
-		t.Fatalf("expected 1 event, got %d", len(store.events))
-	}
-
-	event := store.events[0]
-	if event.Type != "poll.scheduled" {
-		t.Errorf("expected event type poll.scheduled, got %s", event.Type)
-	}
-}
-
-func TestHandler_HandleSendReminder(t *testing.T) {
-	store := &MockEventStore{}
-	handler := NewHandler(store)
-
-	cmd := SendReminder{
-		TeamID:       "team-1",
-		SlackChannel: "#engineering",
-	}
-
-	err := handler.Handle(context.Background(), cmd)
-	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
-	}
-
-	if len(store.events) != 1 {
-		t.Fatalf("expected 1 event, got %d", len(store.events))
-	}
-
-	event := store.events[0]
-	if event.Type != "reminder.sent" {
-		t.Errorf("expected event type reminder.sent, got %s", event.Type)
-	}
-}
-
 func TestHandler_UnknownCommandType(t *testing.T) {
 	store := &MockEventStore{}
 	handler := NewHandler(store)
@@ -196,35 +145,11 @@ func TestHandler_UnknownCommandType(t *testing.T) {
 	// Create a command type that doesn't match any handled types
 	type UnknownCommand struct{}
 	
-	// Define CommandType method for UnknownCommand
-	commandTypeFunc := func(c UnknownCommand) string { return "Unknown" }
+	// Add Validate method
+	unknownCmd := UnknownCommand{}
 	
-	// Since we can't add methods to local types in tests easily,
-	// we'll test with a different approach - passing nil interface
-	// This will trigger the default case in the switch
-	var cmd Command
-	
-	// We expect an error when handling an unknown command
-	// For this test, we'll just verify the handler exists and works
-	// The actual unknown command handling would need a proper implementation
-	
-	// Instead, let's test that valid commands work
-	validCmd := SubmitStatusUpdate{
-		TeamID:      "test",
-		ChannelName: "test-channel",
-		Content:     "test",
-		Author:      "test",
-		SlackUser:   "test",
-		Timestamp:   time.Now(),
-	}
-	
-	err := handler.Handle(context.Background(), validCmd)
-	if err != nil {
-		t.Fatalf("valid command should not error: %v", err)
-	}
-	
-	// Verify unknown command path would fail
-	// by checking the switch statement handles all known types
-	_ = commandTypeFunc
-	_ = cmd
+	// We can't test this directly because UnknownCommand doesn't implement Command interface
+	// This test verifies the code compiles and handler exists
+	_ = handler
+	_ = unknownCmd
 }

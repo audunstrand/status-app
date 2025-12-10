@@ -88,8 +88,6 @@ func (p *Projector) processEvent(ctx context.Context, event *events.Event) error
 		return p.handleTeamRegistered(ctx, event)
 	case events.TeamUpdated:
 		return p.handleTeamUpdated(ctx, event)
-	case events.ReminderSent:
-		return p.handleReminderSent(ctx, event)
 	default:
 		// Unknown event type, skip
 		return nil
@@ -126,15 +124,14 @@ func (p *Projector) handleTeamRegistered(ctx context.Context, event *events.Even
 	}
 
 	query := `
-		INSERT INTO teams (team_id, name, slack_channel, poll_schedule, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $5)
+		INSERT INTO teams (team_id, name, slack_channel, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $4)
 		ON CONFLICT (team_id) DO NOTHING
 	`
 	_, err := p.db.ExecContext(ctx, query,
 		data.TeamID,
 		data.Name,
 		data.SlackChannel,
-		data.PollSchedule,
 		event.Timestamp,
 	)
 
@@ -149,21 +146,15 @@ func (p *Projector) handleTeamUpdated(ctx context.Context, event *events.Event) 
 
 	query := `
 		UPDATE teams
-		SET name = $2, slack_channel = $3, poll_schedule = $4, updated_at = $5
+		SET name = $2, slack_channel = $3, updated_at = $4
 		WHERE team_id = $1
 	`
 	_, err := p.db.ExecContext(ctx, query,
 		data.TeamID,
 		data.Name,
 		data.SlackChannel,
-		data.PollSchedule,
 		event.Timestamp,
 	)
 
 	return err
-}
-
-func (p *Projector) handleReminderSent(ctx context.Context, event *events.Event) error {
-	// Could track reminder history in a separate table if needed
-	return nil
 }

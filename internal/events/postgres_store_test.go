@@ -45,7 +45,6 @@ func newTeamRegisteredEvent(t *testing.T, teamID, name, channel, schedule string
 		TeamID:       teamID,
 		Name:         name,
 		SlackChannel: channel,
-		PollSchedule: schedule,
 	}
 	return newTestEvent(t, TeamRegistered, teamID, data, timestamp)
 }
@@ -146,7 +145,6 @@ func TestEvent_MarshalUnmarshal(t *testing.T) {
 		TeamID:       "team-test",
 		Name:         "Test Team",
 		SlackChannel: "#test",
-		PollSchedule: "daily",
 	}
 
 	data := testutil.MustMarshalJSON(t, teamData)

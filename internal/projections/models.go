@@ -7,7 +7,6 @@ type Team struct {
 	TeamID       string    `json:"team_id"`
 	Name         string    `json:"name"`
 	SlackChannel string    `json:"slack_channel"`
-	PollSchedule string    `json:"poll_schedule"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -27,6 +26,5 @@ type TeamSummary struct {
 	Team               Team      `json:"team"`
 	TotalUpdates       int       `json:"total_updates"`
 	LastUpdateAt       time.Time `json:"last_update_at"`
-	LastReminderSent   time.Time `json:"last_reminder_sent"`
 	UniqueContributors int       `json:"unique_contributors"`
 }

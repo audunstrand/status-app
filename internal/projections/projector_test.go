@@ -71,7 +71,6 @@ func newTeamRegisteredEvent(t *testing.T, teamID, name, channel, schedule string
 		TeamID:       teamID,
 		Name:         name,
 		SlackChannel: channel,
-		PollSchedule: schedule,
 	}
 	return newTestEvent(t, events.TeamRegistered, teamID, data, timestamp)
 }
@@ -83,7 +82,6 @@ func newTeamUpdatedEvent(t *testing.T, teamID, name, channel, schedule string, t
 		TeamID:       teamID,
 		Name:         name,
 		SlackChannel: channel,
-		PollSchedule: schedule,
 	}
 	return newTestEvent(t, events.TeamUpdated, teamID, data, timestamp)
 }
@@ -126,7 +124,6 @@ func TestProjector_RebuildProjections(t *testing.T) {
 		// Should have the final values from event3
 		testutil.AssertEqual(t, team.Name, "Final Engineering Team", "Team name")
 		testutil.AssertEqual(t, team.SlackChannel, "#engineering-final", "SlackChannel")
-		testutil.AssertEqual(t, team.PollSchedule, "twice-daily", "PollSchedule")
 	})
 
 	t.Run("handles status updates for multiple teams", func(t *testing.T) {
@@ -238,6 +235,5 @@ func TestProjector_RebuildProjections(t *testing.T) {
 		// Verify the projection has the FINAL state (from event3)
 		testutil.AssertEqual(t, team.Name, "Third Name", "Team name (last update)")
 		testutil.AssertEqual(t, team.SlackChannel, "#third", "SlackChannel")
-		testutil.AssertEqual(t, team.PollSchedule, "hourly", "PollSchedule")
 	})
 }

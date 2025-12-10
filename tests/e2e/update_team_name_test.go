@@ -26,7 +26,6 @@ func TestUpdateTeamName(t *testing.T) {
 	registerCmd := commands.RegisterTeam{
 		Name:         "general",
 		SlackChannel: channelID,
-		PollSchedule: "",
 	}
 
 	err := cmdHandler.Handle(ctx, registerCmd)
@@ -56,7 +55,6 @@ func TestUpdateTeamName(t *testing.T) {
 		TeamID:       teamID,
 		Name:         "Product Team",
 		SlackChannel: channelID,
-		PollSchedule: "",
 	}
 
 	err = cmdHandler.Handle(ctx, updateCmd)

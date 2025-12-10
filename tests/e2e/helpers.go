@@ -129,7 +129,6 @@ func projectTeamRegistered(ctx context.Context, db *sql.DB, data *events.TeamReg
 		data.TeamID,
 		data.Name,
 		data.SlackChannel,
-		data.PollSchedule,
 		time.Now(),
 		time.Now(),
 	)
@@ -146,7 +145,6 @@ func projectTeamUpdated(ctx context.Context, db *sql.DB, data *events.TeamRegist
 		data.TeamID,
 		data.Name,
 		data.SlackChannel,
-		data.PollSchedule,
 		time.Now(),
 	)
 	return err

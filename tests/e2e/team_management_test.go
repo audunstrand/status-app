@@ -26,7 +26,6 @@ func TestTeamManagementFlow(t *testing.T) {
 	registerCmd := commands.RegisterTeam{
 		Name:         "Product Team",
 		SlackChannel: "#product",
-		PollSchedule: "daily",
 	}
 
 	err := cmdHandler.Handle(ctx, registerCmd)
@@ -61,16 +60,11 @@ func TestTeamManagementFlow(t *testing.T) {
 		t.Errorf("Expected slack channel '#product', got '%s'", team.SlackChannel)
 	}
 
-	if team.PollSchedule != "daily" {
-		t.Errorf("Expected poll schedule 'daily', got '%s'", team.PollSchedule)
-	}
-
 	// Step 3: Update the team
 	updateCmd := commands.UpdateTeam{
 		TeamID:       teamID,
 		Name:         "Product Team v2",
 		SlackChannel: "#product-new",
-		PollSchedule: "weekly",
 	}
 
 	err = cmdHandler.Handle(ctx, updateCmd)
@@ -98,10 +92,6 @@ func TestTeamManagementFlow(t *testing.T) {
 
 	if updatedTeam.SlackChannel != "#product-new" {
 		t.Errorf("Expected updated slack channel '#product-new', got '%s'", updatedTeam.SlackChannel)
-	}
-
-	if updatedTeam.PollSchedule != "weekly" {
-		t.Errorf("Expected updated poll schedule 'weekly', got '%s'", updatedTeam.PollSchedule)
 	}
 
 	// Step 5: Verify event history

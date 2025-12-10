@@ -91,7 +91,6 @@ func TestRegisterTeam_Validate(t *testing.T) {
 			cmd: RegisterTeam{
 				Name:         "Engineering",
 				SlackChannel: "#engineering",
-				PollSchedule: "0 9 * * MON",
 			},
 			wantErr: false,
 		},
@@ -151,95 +150,6 @@ func TestUpdateTeam_Validate(t *testing.T) {
 			},
 			wantErr: true,
 			errMsg:  "team_id is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.cmd.Validate()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestSchedulePoll_Validate(t *testing.T) {
-	tests := []struct {
-		name    string
-		cmd     SchedulePoll
-		wantErr bool
-		errMsg  string
-	}{
-		{
-			name: "valid command",
-			cmd: SchedulePoll{
-				TeamID:    "team-123",
-				DueDate:   time.Now().Add(24 * time.Hour),
-				Frequency: "weekly",
-			},
-			wantErr: false,
-		},
-		{
-			name: "missing team_id",
-			cmd: SchedulePoll{
-				DueDate:   time.Now().Add(24 * time.Hour),
-				Frequency: "weekly",
-			},
-			wantErr: true,
-			errMsg:  "team_id is required",
-		},
-		{
-			name: "missing due_date",
-			cmd: SchedulePoll{
-				TeamID:    "team-123",
-				Frequency: "weekly",
-			},
-			wantErr: true,
-			errMsg:  "due_date is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.cmd.Validate()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestSendReminder_Validate(t *testing.T) {
-	tests := []struct {
-		name    string
-		cmd     SendReminder
-		wantErr bool
-		errMsg  string
-	}{
-		{
-			name: "valid command",
-			cmd: SendReminder{
-				TeamID:       "team-123",
-				SlackChannel: "#engineering",
-			},
-			wantErr: false,
-		},
-		{
-			name: "missing team_id",
-			cmd: SendReminder{
-				SlackChannel: "#engineering",
-			},
-			wantErr: true,
-			errMsg:  "team_id is required",
-		},
-		{
-			name: "missing slack_channel",
-			cmd: SendReminder{
-				TeamID: "team-123",
-			},
-			wantErr: true,
-			errMsg:  "slack_channel is required",
 		},
 	}
 
