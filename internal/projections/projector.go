@@ -46,7 +46,11 @@ func (p *Projector) Start(ctx context.Context) error {
 	go func() {
 		for {
 			select {
-			case event := <-eventsCh:
+			case event, ok := <-eventsCh:
+				if !ok {
+					log.Println("event channel closed, stopping projection subscription")
+					return
+				}
 				if err := p.processEvent(ctx, event); err != nil {
 					log.Printf("failed to process event %s: %v", event.ID, err)
 				}

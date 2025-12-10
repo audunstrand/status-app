@@ -6,12 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
 
 type PostgresStore struct {
-	db *sql.DB
+	db      *sql.DB
+	connStr string
 }
 
 func NewPostgresStore(connStr string) (*PostgresStore, error) {
@@ -24,7 +27,10 @@ func NewPostgresStore(connStr string) (*PostgresStore, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return &PostgresStore{db: db}, nil
+	return &PostgresStore{
+		db:      db,
+		connStr: connStr,
+	}, nil
 }
 
 func (s *PostgresStore) Append(ctx context.Context, event *Event) error {
@@ -55,7 +61,8 @@ func (s *PostgresStore) Append(ctx context.Context, event *Event) error {
 	}
 
 	// Notify listeners (PostgreSQL NOTIFY)
-	if _, err := s.db.ExecContext(ctx, "NOTIFY events, $1", event.ID); err != nil {
+	notifyQuery := fmt.Sprintf("NOTIFY events, '%s'", event.ID)
+	if _, err := s.db.ExecContext(ctx, notifyQuery); err != nil {
 		log.Printf("Warning: failed to notify listeners: %v", err)
 	}
 
@@ -111,14 +118,98 @@ func (s *PostgresStore) GetAll(ctx context.Context, eventType string, offset, li
 }
 
 func (s *PostgresStore) Subscribe(ctx context.Context, eventTypes []string) (<-chan *Event, error) {
-	// TODO: Implement LISTEN/NOTIFY for real-time event streaming
-	// For now, return a simple implementation
-	ch := make(chan *Event)
+	// Create a new connection for listening (LISTEN requires its own connection)
+	listener := pq.NewListener(
+		s.connStr,
+		10*time.Second,
+		time.Minute,
+		func(ev pq.ListenerEventType, err error) {
+			if err != nil {
+				log.Printf("pq.Listener error: %v", err)
+			}
+		},
+	)
+
+	if err := listener.Listen("events"); err != nil {
+		return nil, fmt.Errorf("failed to listen on events channel: %w", err)
+	}
+
+	ch := make(chan *Event, 10) // Buffered channel to avoid blocking
+
 	go func() {
-		<-ctx.Done()
-		close(ch)
+		defer listener.Close()
+		defer close(ch)
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case notification := <-listener.Notify:
+				if notification == nil {
+					continue
+				}
+
+				// Fetch the event by ID from the notification payload
+				eventID := notification.Extra
+				event, err := s.getEventByID(ctx, eventID)
+				if err != nil {
+					log.Printf("failed to fetch event %s: %v", eventID, err)
+					continue
+				}
+
+				// Filter by event type if specified
+				if len(eventTypes) > 0 {
+					match := false
+					for _, et := range eventTypes {
+						if event.Type == et {
+							match = true
+							break
+						}
+					}
+					if !match {
+						continue
+					}
+				}
+
+				select {
+				case ch <- event:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
 	}()
+
 	return ch, nil
+}
+
+func (s *PostgresStore) getEventByID(ctx context.Context, eventID string) (*Event, error) {
+	query := `
+		SELECT id, type, aggregate_id, data, timestamp, metadata, version
+		FROM events
+		WHERE id = $1
+	`
+	var event Event
+	var metadata sql.NullString
+
+	err := s.db.QueryRowContext(ctx, query, eventID).Scan(
+		&event.ID,
+		&event.Type,
+		&event.AggregateID,
+		&event.Data,
+		&event.Timestamp,
+		&metadata,
+		&event.Version,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query event: %w", err)
+	}
+
+	if metadata.Valid {
+		event.Metadata = json.RawMessage(metadata.String)
+	}
+
+	return &event, nil
 }
 
 func (s *PostgresStore) Close() error {
