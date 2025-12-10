@@ -93,15 +93,7 @@ func (r *Repository) GetTeamUpdates(ctx context.Context, teamID string, limit in
 	}
 	defer rows.Close()
 
-	var updates []*StatusUpdate
-	for rows.Next() {
-		update, err := r.scanStatusUpdate(rows)
-		if err != nil {
-			return nil, err
-		}
-		updates = append(updates, update)
-	}
-	return updates, rows.Err()
+	return r.scanStatusUpdates(rows)
 }
 
 func (r *Repository) GetRecentUpdates(ctx context.Context, limit int) ([]*StatusUpdate, error) {
@@ -117,6 +109,11 @@ func (r *Repository) GetRecentUpdates(ctx context.Context, limit int) ([]*Status
 	}
 	defer rows.Close()
 
+	return r.scanStatusUpdates(rows)
+}
+
+// scanStatusUpdates scans multiple StatusUpdate rows
+func (r *Repository) scanStatusUpdates(rows *sql.Rows) ([]*StatusUpdate, error) {
 	var updates []*StatusUpdate
 	for rows.Next() {
 		update, err := r.scanStatusUpdate(rows)

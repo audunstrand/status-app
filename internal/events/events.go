@@ -43,6 +43,14 @@ type TeamRegisteredData struct {
 	PollSchedule string `json:"poll_schedule"` // cron format
 }
 
+// TeamUpdatedData represents the data for team updates
+type TeamUpdatedData struct {
+	TeamID       string `json:"team_id"`
+	Name         string `json:"name"`
+	SlackChannel string `json:"slack_channel"`
+	PollSchedule string `json:"poll_schedule"` // cron format
+}
+
 // PollScheduledData represents scheduled poll information
 type PollScheduledData struct {
 	PollID    string    `json:"poll_id"`

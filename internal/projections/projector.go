@@ -142,7 +142,7 @@ func (p *Projector) handleTeamRegistered(ctx context.Context, event *events.Even
 }
 
 func (p *Projector) handleTeamUpdated(ctx context.Context, event *events.Event) error {
-	var data events.TeamRegisteredData
+	var data events.TeamUpdatedData
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return fmt.Errorf("failed to unmarshal event data: %w", err)
 	}

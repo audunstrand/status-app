@@ -22,6 +22,11 @@ func NewHandler(eventStore events.Store) *Handler {
 }
 
 func (h *Handler) Handle(ctx context.Context, cmd Command) error {
+	// Validate command
+	if err := cmd.Validate(); err != nil {
+		return fmt.Errorf("invalid command: %w", err)
+	}
+
 	switch c := cmd.(type) {
 	case SubmitStatusUpdate:
 		return h.handleSubmitStatusUpdate(ctx, c)
@@ -115,7 +120,7 @@ func (h *Handler) handleRegisterTeam(ctx context.Context, cmd RegisterTeam) erro
 }
 
 func (h *Handler) handleUpdateTeam(ctx context.Context, cmd UpdateTeam) error {
-	data := events.TeamRegisteredData{
+	data := events.TeamUpdatedData{
 		TeamID:       cmd.TeamID,
 		Name:         cmd.Name,
 		SlackChannel: cmd.SlackChannel,

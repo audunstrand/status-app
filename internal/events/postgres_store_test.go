@@ -157,3 +157,104 @@ func TestEvent_MarshalUnmarshal(t *testing.T) {
 	testutil.AssertEqual(t, unmarshaled.TeamID, teamData.TeamID, "TeamID")
 	testutil.AssertEqual(t, unmarshaled.Name, teamData.Name, "Name")
 }
+
+func TestPostgresStore_Subscribe_Integration(t *testing.T) {
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+testDB := testutil.SetupTestDB(t)
+defer testDB.Cleanup()
+
+store, err := NewPostgresStore(testDB.ConnectionString())
+if err != nil {
+t.Fatalf("Failed to create store: %v", err)
+}
+defer store.Close()
+
+// Subscribe to events
+eventsCh, err := store.Subscribe(ctx, []string{})
+if err != nil {
+t.Fatalf("Failed to subscribe: %v", err)
+}
+
+// Give subscriber time to connect
+time.Sleep(100 * time.Millisecond)
+
+// Append a new event
+event := newTeamRegisteredEvent(t, "team-subscribe-test", "Engineering", "#engineering", "", time.Now())
+
+err = store.Append(ctx, event)
+if err != nil {
+t.Fatalf("Failed to append event: %v", err)
+}
+
+// Wait for notification
+select {
+case receivedEvent := <-eventsCh:
+if receivedEvent.ID != event.ID {
+t.Errorf("Expected event ID '%s', got '%s'", event.ID, receivedEvent.ID)
+}
+if receivedEvent.Type != TeamRegistered {
+t.Errorf("Expected event type '%s', got '%s'", TeamRegistered, receivedEvent.Type)
+}
+case <-time.After(2 * time.Second):
+t.Fatal("Timeout waiting for event notification")
+}
+}
+
+func TestPostgresStore_Subscribe_FilterByEventType(t *testing.T) {
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+testDB := testutil.SetupTestDB(t)
+defer testDB.Cleanup()
+
+store, err := NewPostgresStore(testDB.ConnectionString())
+if err != nil {
+t.Fatalf("Failed to create store: %v", err)
+}
+defer store.Close()
+
+// Subscribe only to TeamRegistered events
+eventsCh, err := store.Subscribe(ctx, []string{TeamRegistered})
+if err != nil {
+t.Fatalf("Failed to subscribe: %v", err)
+}
+
+time.Sleep(100 * time.Millisecond)
+
+// Append a StatusUpdateSubmitted event (should be filtered out)
+statusEvent := newStatusUpdateEvent(t, "team-filter-test", "Test update", "Alice", "alice", time.Now())
+err = store.Append(ctx, statusEvent)
+if err != nil {
+t.Fatalf("Failed to append status event: %v", err)
+}
+
+// Append a TeamRegistered event (should be received)
+teamEvent := newTeamRegisteredEvent(t, "team-filter-test", "Product", "#product", "", time.Now())
+err = store.Append(ctx, teamEvent)
+if err != nil {
+t.Fatalf("Failed to append team event: %v", err)
+}
+
+// Should only receive the TeamRegistered event
+select {
+case receivedEvent := <-eventsCh:
+if receivedEvent.Type != TeamRegistered {
+t.Errorf("Expected TeamRegistered event, got '%s'", receivedEvent.Type)
+}
+if receivedEvent.ID != teamEvent.ID {
+t.Errorf("Expected event ID '%s', got '%s'", teamEvent.ID, receivedEvent.ID)
+}
+case <-time.After(2 * time.Second):
+t.Fatal("Timeout waiting for TeamRegistered event")
+}
+
+// Ensure no other events are received
+select {
+case unexpectedEvent := <-eventsCh:
+t.Errorf("Received unexpected event: %s", unexpectedEvent.ID)
+case <-time.After(500 * time.Millisecond):
+// Good - no additional events
+}
+}
