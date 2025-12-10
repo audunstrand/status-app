@@ -80,7 +80,6 @@ func TestRegisterTeamRequest_Validate(t *testing.T) {
 			req: RegisterTeamRequest{
 				Name:         "Engineering",
 				SlackChannel: "#engineering",
-				PollSchedule: "weekly",
 			},
 			wantErr: false,
 		},
@@ -88,7 +87,6 @@ func TestRegisterTeamRequest_Validate(t *testing.T) {
 			name: "missing name",
 			req: RegisterTeamRequest{
 				SlackChannel: "#engineering",
-				PollSchedule: "weekly",
 			},
 			wantErr: true,
 			errMsg:  "name is required",
@@ -97,7 +95,6 @@ func TestRegisterTeamRequest_Validate(t *testing.T) {
 			name: "missing slack channel",
 			req: RegisterTeamRequest{
 				Name:         "Engineering",
-				PollSchedule: "weekly",
 			},
 			wantErr: true,
 			errMsg:  "slack_channel is required",
