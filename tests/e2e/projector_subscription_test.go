@@ -19,13 +19,20 @@ func TestProjectorSubscriptionRealtime(t *testing.T) {
 	defer testDB.Cleanup()
 
 	ctx := context.Background()
-	eventStore := newTestEventStore(testDB.DB)
+	
+	// Use real PostgresStore instead of testEventStore for LISTEN/NOTIFY support
+	eventStore, err := events.NewPostgresStore(testDB.ConnectionString())
+	if err != nil {
+		t.Fatalf("Failed to create event store: %v", err)
+	}
+	defer eventStore.Close()
+	
 	cmdHandler := commands.NewHandler(eventStore)
 	repo := projections.NewRepository(testDB.DB)
 
 	// Start the projector
 	projector := projections.NewProjector(eventStore, testDB.DB)
-	err := projector.Start(ctx)
+	err = projector.Start(ctx)
 	if err != nil {
 		t.Fatalf("Failed to start projector: %v", err)
 	}

@@ -125,7 +125,9 @@ func (s *PostgresStore) Subscribe(ctx context.Context, eventTypes []string) (<-c
 		time.Minute,
 		func(ev pq.ListenerEventType, err error) {
 			if err != nil {
-				log.Printf("pq.Listener error: %v", err)
+				log.Printf("pq.Listener event: %v, error: %v", ev, err)
+			} else {
+				log.Printf("pq.Listener event: %v", ev)
 			}
 		},
 	)
@@ -134,20 +136,27 @@ func (s *PostgresStore) Subscribe(ctx context.Context, eventTypes []string) (<-c
 		return nil, fmt.Errorf("failed to listen on events channel: %w", err)
 	}
 
+	log.Printf("Started listening on 'events' channel")
+
 	ch := make(chan *Event, 10) // Buffered channel to avoid blocking
 
 	go func() {
 		defer listener.Close()
 		defer close(ch)
+		defer log.Println("Subscribe goroutine exiting")
 
 		for {
 			select {
 			case <-ctx.Done():
+				log.Println("Context cancelled, stopping subscription")
 				return
 			case notification := <-listener.Notify:
 				if notification == nil {
+					log.Println("Received nil notification, continuing")
 					continue
 				}
+
+				log.Printf("Received notification: %s", notification.Extra)
 
 				// Fetch the event by ID from the notification payload
 				eventID := notification.Extra
@@ -173,6 +182,7 @@ func (s *PostgresStore) Subscribe(ctx context.Context, eventTypes []string) (<-c
 
 				select {
 				case ch <- event:
+					log.Printf("Sent event %s to channel", event.ID)
 				case <-ctx.Done():
 					return
 				}
