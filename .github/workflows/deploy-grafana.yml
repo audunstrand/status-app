@@ -5,7 +5,7 @@ on:
     inputs:
       grafana_url:
         description: 'Grafana URL (e.g., https://your-grafana.net)'
-        required: true
+        required: false
         type: string
   push:
     paths:
@@ -22,22 +22,55 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Deploy dashboard
+      - name: Deploy to Grafana
         env:
           GRAFANA_URL: ${{ inputs.grafana_url || vars.GRAFANA_URL }}
           GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
         run: |
-          python3 scripts/deploy-grafana-dashboard.py
+          # Load dashboard JSON
+          DASHBOARD_JSON=$(cat docs/grafana-dashboard.json)
+          
+          # Prepare payload for Grafana API
+          PAYLOAD=$(jq -n \
+            --argjson dashboard "$DASHBOARD_JSON" \
+            '{
+              dashboard: $dashboard.dashboard,
+              overwrite: true,
+              message: "Deployed via GitHub Actions"
+            }')
+          
+          # Deploy to Grafana
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer $GRAFANA_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "$GRAFANA_URL/api/dashboards/db")
+          
+          # Extract HTTP status code
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✓ Dashboard deployed successfully!"
+            echo "$RESPONSE_BODY" | jq '.'
+            
+            # Extract dashboard URL
+            DASHBOARD_URL=$(echo "$RESPONSE_BODY" | jq -r '.url // empty')
+            if [ -n "$DASHBOARD_URL" ]; then
+              echo "Dashboard URL: $GRAFANA_URL$DASHBOARD_URL"
+            fi
+          else
+            echo "✗ Failed to deploy dashboard (HTTP $HTTP_CODE)"
+            echo "$RESPONSE_BODY" | jq '.'
+            exit 1
+          fi
 
       - name: Deployment summary
         if: success()
         run: |
-          echo "✓ Grafana dashboard deployed successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "## ✓ Dashboard Deployed Successfully!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Dashboard location: docs/grafana-dashboard.json" >> $GITHUB_STEP_SUMMARY
-          echo "Grafana URL: ${{ inputs.grafana_url || vars.GRAFANA_URL }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Grafana URL:** ${{ inputs.grafana_url || vars.GRAFANA_URL }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Dashboard will be available at your Grafana instance." >> $GITHUB_STEP_SUMMARY
