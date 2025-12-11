@@ -57,8 +57,13 @@ func (s *PostgresStore) Append(ctx context.Context, event *Event) error {
 		event.Version,
 	)
 	if err != nil {
+		eventStoreErrors.WithLabelValues("append").Inc()
 		return fmt.Errorf("failed to append event: %w", err)
 	}
+
+	// Record metrics
+	eventsStoredTotal.WithLabelValues(event.Type).Inc()
+	eventsStoredBytes.Add(float64(len(event.Data)))
 
 	// Notify listeners (PostgreSQL NOTIFY)
 	notifyQuery := fmt.Sprintf("NOTIFY events, '%s'", event.ID)
@@ -233,12 +238,16 @@ func (s *PostgresStore) scanEvents(rows *sql.Rows) ([]*Event, error) {
 			&event.Version,
 		)
 		if err != nil {
+			eventStoreErrors.WithLabelValues("scan").Inc()
 			return nil, fmt.Errorf("failed to scan event: %w", err)
 		}
 
 		if metadata.Valid {
 			event.Metadata = json.RawMessage(metadata.String)
 		}
+
+		// Record metric for loaded event
+		eventsLoadedTotal.WithLabelValues(event.Type).Inc()
 
 		events = append(events, &event)
 	}
