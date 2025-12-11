@@ -1,6 +1,10 @@
-# Session Resume - 2025-12-09
+# SESSION RESUME - 2025-12-11 08:44 UTC
 
-## What We Accomplished Today
+## ✅ ALL SYSTEMS GREEN
+
+---
+
+## What We Accomplished Today (2025-12-11)
 
 ### 1. Removed Unused Code
 - **Removed `CommandType()` method** from Command interface
@@ -55,31 +59,62 @@
 - E2E tests: 77.6%
 
 ### Recent Commits (newest first)
-1. `2ec115e` - Update TODO - mark migrations and URL refactoring complete
-2. `f1e7c90` - Add automated database migrations with golang-migrate
-3. `548c319` - Add ADR for database migration strategy
-4. `a38c931` - Add ADR requirement to copilot instructions
-5. `9e20f74` - Refactor URL structure to RESTful endpoints
-6. `01335e3` - Remove unused CommandType() method from Command interface
+1. `a278706` - fix: remove poll_schedule from all test helper functions
+2. `16b022c` - fix: remove poll_schedule from test database schema
+3. `ab97f01` - Add /updates Slack command to view team updates
+4. `4d151a0` - Remove unused scheduler code and poll_schedule column
+5. `051c1e7` - Simplify scheduler to send reminders to all teams
+6. `2ec115e` - Update TODO - mark migrations and URL refactoring complete
+
+## Recent Work (Last 2 Hours)
+
+### 1. ✅ Cleaned Up Unused Scheduler Code
+- **Commits**: 051c1e7, 4d151a0
+- Removed unused `SchedulePoll`, `SendReminder` commands
+- Removed unused `PollScheduled`, `ReminderSent` events
+- Removed `poll_schedule` column from database
+- Added migration 005 to drop column
+- Scheduler now simple: Monday 9 AM reminders to ALL teams
+- **Status**: PUSHED ✅
+
+### 2. ✅ Added `/updates` Slack Command
+- **Commit**: ab97f01
+- Shows last 10 updates for team
+- Fetches from `GET /teams/{id}/updates` API
+- Ephemeral message (only user sees it)
+- **Status**: DEPLOYED ✅
+
+### 3. ✅ Fixed Test Database Schema
+- **Commits**: 16b022c, a278706
+- Removed `poll_schedule` from all test helpers:
+  - `tests/testutil/database.go` - Schema and InsertTestTeam
+  - `tests/e2e/helpers.go` - projectTeamRegistered, projectTeamUpdated
+- **Status**: DEPLOYED ✅
+
+### 4. ✅ Registered Slash Commands in Slack
+- Registered `/set-team-name` command
+- Registered `/updates` command
+- Both commands working in Slack workspace
+- **Status**: COMPLETE ✅
+
+---
 
 ## What's Next
 
-### Remaining Tasks (~2.5 hours)
+### Remaining Tasks (~30 minutes)
 
-1. **Real-Time Projections** (1h)
-   - Replace polling with PostgreSQL LISTEN/NOTIFY
-   - Projections update immediately when events written
-   - Implement `Subscribe()` method in postgres_store.go
-
-2. **Scheduler Reminders** (1h)
-   - Actually send Slack reminders on schedule
-   - Parse poll schedule (e.g., "monday", "weekly")
-   - Add `last_reminded_at` to teams table
-   - Send Slack messages via API
-
+1. ✅ ~~Real-Time Projections~~ - COMPLETE
+   - PostgreSQL LISTEN/NOTIFY implemented
+   - Integration tests added
+   
+2. ✅ ~~Scheduler Reminders~~ - COMPLETE (simplified)
+   - Sends Monday 9 AM reminders to all teams
+   - No complex scheduling needed
+   
 3. **Minor Fixes** (30m)
-   - Fix ignored NOTIFY error in postgres_store.go
+   - ✅ ~~Fix ignored NOTIFY error~~ - DONE
    - Add Fly.io health checks to all services
+   - Update TODO.md
 
 ## Important Files to Know
 
