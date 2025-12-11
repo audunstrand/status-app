@@ -1,0 +1,43 @@
+name: Deploy Grafana Dashboard
+
+on:
+  workflow_dispatch: # Manual trigger
+    inputs:
+      grafana_url:
+        description: 'Grafana URL (e.g., https://your-grafana.net)'
+        required: true
+        type: string
+  push:
+    paths:
+      - 'docs/grafana-dashboard.json'
+    branches:
+      - master
+
+jobs:
+  deploy-dashboard:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && vars.GRAFANA_URL != '')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Deploy dashboard
+        env:
+          GRAFANA_URL: ${{ inputs.grafana_url || vars.GRAFANA_URL }}
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+        run: |
+          python3 scripts/deploy-grafana-dashboard.py
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "✓ Grafana dashboard deployed successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Dashboard location: docs/grafana-dashboard.json" >> $GITHUB_STEP_SUMMARY
+          echo "Grafana URL: ${{ inputs.grafana_url || vars.GRAFANA_URL }}" >> $GITHUB_STEP_SUMMARY
