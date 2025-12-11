@@ -206,6 +206,8 @@ func (bot *SlackBot) handleSlashCommand(cmd slack.SlashCommand) {
 	switch cmd.Command {
 	case "/set-team-name":
 		bot.openTeamNameModal(cmd)
+	case "/updates":
+		bot.showTeamUpdates(cmd)
 	default:
 		bot.slackAPI.PostEphemeral(
 			cmd.ChannelID,
@@ -314,4 +316,65 @@ func (bot *SlackBot) updateTeamName(ctx context.Context, channelID, teamName str
 	}
 
 	return nil
+}
+
+func (bot *SlackBot) showTeamUpdates(cmd slack.SlashCommand) {
+teamID := cmd.ChannelID
+
+// Fetch updates from backend API
+url := fmt.Sprintf("%s/teams/%s/updates?limit=10", bot.cfg.CommandsURL, teamID)
+req, err := http.NewRequest("GET", url, nil)
+if err != nil {
+log.Printf("Failed to create request: %v", err)
+bot.slackAPI.PostEphemeral(cmd.ChannelID, cmd.UserID,
+slack.MsgOptionText("❌ Failed to fetch updates", false))
+return
+}
+
+req.Header.Set("Authorization", "Bearer "+bot.cfg.APISecret)
+
+resp, err := bot.client.Do(req)
+if err != nil {
+log.Printf("Failed to fetch updates: %v", err)
+bot.slackAPI.PostEphemeral(cmd.ChannelID, cmd.UserID,
+slack.MsgOptionText("❌ Failed to fetch updates", false))
+return
+}
+defer resp.Body.Close()
+
+if resp.StatusCode != http.StatusOK {
+log.Printf("Backend returned status %d", resp.StatusCode)
+bot.slackAPI.PostEphemeral(cmd.ChannelID, cmd.UserID,
+slack.MsgOptionText("❌ Failed to fetch updates", false))
+return
+}
+
+var updates []struct {
+UpdateID  string    `json:"update_id"`
+Content   string    `json:"content"`
+Author    string    `json:"author"`
+CreatedAt time.Time `json:"created_at"`
+}
+
+if err := json.NewDecoder(resp.Body).Decode(&updates); err != nil {
+log.Printf("Failed to decode response: %v", err)
+bot.slackAPI.PostEphemeral(cmd.ChannelID, cmd.UserID,
+slack.MsgOptionText("❌ Failed to parse updates", false))
+return
+}
+
+// Format and send response
+if len(updates) == 0 {
+bot.slackAPI.PostEphemeral(cmd.ChannelID, cmd.UserID,
+slack.MsgOptionText("📝 No updates yet for this team", false))
+return
+}
+
+message := "📝 *Recent Updates*\n\n"
+for _, update := range updates {
+message += fmt.Sprintf("• %s - _%s_\n", update.Content, update.CreatedAt.Format("Jan 02, 15:04"))
+}
+
+bot.slackAPI.PostEphemeral(cmd.ChannelID, cmd.UserID,
+slack.MsgOptionText(message, false))
 }
