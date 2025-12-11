@@ -98,13 +98,12 @@ func (tdb *TestDB) RunMigrations() {
 		tdb.t.Fatalf("Failed to run event store migration: %v", err)
 	}
 
-	// Projections migration
+	// Projections migration (no poll_schedule column)
 	projectionsMigration := `
 	CREATE TABLE IF NOT EXISTS teams (
 		team_id VARCHAR(255) PRIMARY KEY,
 		name VARCHAR(255) NOT NULL,
 		slack_channel VARCHAR(255) NOT NULL,
-		poll_schedule VARCHAR(100),
 		created_at TIMESTAMP WITH TIME ZONE NOT NULL,
 		updated_at TIMESTAMP WITH TIME ZONE NOT NULL
 	);
