@@ -13,6 +13,7 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/yourusername/status-app/internal/auth"
 	"github.com/yourusername/status-app/internal/commands"
 	"github.com/yourusername/status-app/internal/config"
@@ -105,6 +106,9 @@ func main() {
 			"service": "backend",
 		})
 	})
+
+	// Metrics endpoint (no auth required) - for Prometheus/Fly.io scraping
+	mux.Handle("/metrics", promhttp.Handler())
 
 	// Protected endpoints
 	if cfg.APISecret == "" {

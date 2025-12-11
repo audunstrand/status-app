@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/yourusername/status-app/internal/events"
 )
@@ -81,17 +82,35 @@ func (p *Projector) rebuildProjections(ctx context.Context) error {
 }
 
 func (p *Projector) processEvent(ctx context.Context, event *events.Event) error {
+	start := time.Now()
+	
+	var err error
+	var projectionName string
+	
 	switch event.Type {
 	case events.StatusUpdateSubmitted:
-		return p.handleStatusUpdateSubmitted(ctx, event)
+		projectionName = "status_updates"
+		err = p.handleStatusUpdateSubmitted(ctx, event)
 	case events.TeamRegistered:
-		return p.handleTeamRegistered(ctx, event)
+		projectionName = "teams"
+		err = p.handleTeamRegistered(ctx, event)
 	case events.TeamUpdated:
-		return p.handleTeamUpdated(ctx, event)
+		projectionName = "teams"
+		err = p.handleTeamUpdated(ctx, event)
 	default:
 		// Unknown event type, skip
 		return nil
 	}
+	
+	duration := time.Since(start)
+	
+	if err != nil {
+		recordProjectionError(projectionName)
+		return err
+	}
+	
+	recordProjectionUpdate(projectionName, event.Timestamp, duration)
+	return nil
 }
 
 func (p *Projector) handleStatusUpdateSubmitted(ctx context.Context, event *events.Event) error {
