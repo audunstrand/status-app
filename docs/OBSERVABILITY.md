@@ -113,20 +113,37 @@ Fly.io automatically scrapes metrics from `/metrics` endpoints.
    - Fly.io provides a Grafana instance
    - Access at: `https://fly.io/apps/status-app-backend/metrics`
 
-### Importing Dashboard
+### Deploying Dashboard
 
-Import the pre-built dashboard:
+**Option 1: Automated Deployment (Recommended)**
+
+Use the provided deployment scripts:
 
 ```bash
-# Dashboard JSON is in docs/grafana-dashboard.json
+# Set credentials
+export GRAFANA_URL="https://your-grafana-url"
+export GRAFANA_API_KEY="your-api-key"
+
+# Deploy dashboard
+python3 scripts/deploy-grafana-dashboard.py
 ```
 
-**Import Steps:**
+**Option 2: GitHub Actions (CI/CD)**
+
+1. Add secrets to GitHub: `GRAFANA_API_KEY`
+2. Add variable to GitHub: `GRAFANA_URL`
+3. Push changes or trigger manually
+4. Dashboard deploys automatically
+
+**Option 3: Manual Import**
+
 1. Go to Fly.io Grafana instance
 2. Click "+" → "Import"
 3. Upload `docs/grafana-dashboard.json`
 4. Select Fly.io Prometheus datasource
 5. Click "Import"
+
+**See:** `scripts/README.md` for detailed deployment instructions
 
 ## Dashboard Panels
 
