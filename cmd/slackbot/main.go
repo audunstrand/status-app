@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
@@ -89,6 +90,29 @@ func main() {
 		}
 	}()
 
+	// Start HTTP server for metrics
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "healthy",
+			"service": "slackbot",
+		})
+	})
+	mux.Handle("/metrics", promhttp.Handler())
+
+	server := &http.Server{
+		Addr:    ":8081", // Different port from backend
+		Handler: mux,
+	}
+
+	go func() {
+		log.Println("Metrics server running on :8081")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("Metrics server error: %v", err)
+		}
+	}()
+
 	log.Println("Slack bot running")
 
 	// Wait for interrupt signal
@@ -97,6 +121,11 @@ func main() {
 	<-sigCh
 
 	log.Println("Shutting down...")
+	
+	// Shutdown metrics server
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	server.Shutdown(ctx)
 }
 
 func (bot *SlackBot) handleEvent(event slackevents.EventsAPIEvent) {
@@ -107,12 +136,14 @@ func (bot *SlackBot) handleEvent(event slackevents.EventsAPIEvent) {
 		innerEvent := event.InnerEvent
 		switch ev := innerEvent.Data.(type) {
 		case *slackevents.AppMentionEvent:
+			slackMessagesReceivedTotal.WithLabelValues("mention").Inc()
 			log.Printf("Bot mentioned by user %s in channel %s: %s", ev.User, ev.Channel, ev.Text)
 			
 			channelID := ev.Channel
 			channelName := bot.getChannelName(channelID)
 			
 			if err := bot.sendStatusUpdate(ctx, channelID, channelName, ev.Text, ev.User); err != nil {
+				slackbotErrorsTotal.WithLabelValues("backend_error").Inc()
 				log.Printf("Failed to send status update: %v", err)
 				bot.sendSlackMessage(ev.Channel, "❌ Failed to record your status update. Please try again.")
 				return
@@ -127,6 +158,7 @@ func (bot *SlackBot) handleEvent(event slackevents.EventsAPIEvent) {
 				return
 			}
 			
+			slackMessagesReceivedTotal.WithLabelValues("direct_message").Inc()
 			log.Printf("Received message from user %s in channel %s: %s", ev.User, ev.Channel, ev.Text)
 			
 			channelID := ev.Channel
@@ -134,6 +166,7 @@ func (bot *SlackBot) handleEvent(event slackevents.EventsAPIEvent) {
 			
 			// Send status update to Commands service
 			if err := bot.sendStatusUpdate(ctx, channelID, channelName, ev.Text, ev.User); err != nil {
+				slackbotErrorsTotal.WithLabelValues("backend_error").Inc()
 				log.Printf("Failed to send status update: %v", err)
 				bot.sendSlackMessage(ev.Channel, "❌ Failed to record your status update. Please try again.")
 				return
@@ -168,14 +201,18 @@ func (bot *SlackBot) sendStatusUpdate(ctx context.Context, channelID, channelNam
 	
 	resp, err := bot.client.Do(req)
 	if err != nil {
+		backendAPICallsTotal.WithLabelValues("submit_update", "error").Inc()
 		return err
 	}
 	defer resp.Body.Close()
 	
 	if resp.StatusCode != http.StatusCreated {
+		backendAPICallsTotal.WithLabelValues("submit_update", "error").Inc()
 		log.Printf("Failed to submit update: status %d", resp.StatusCode)
+		return fmt.Errorf("backend returned status %d", resp.StatusCode)
 	}
 	
+	backendAPICallsTotal.WithLabelValues("submit_update", "success").Inc()
 	return nil
 }
 
@@ -184,9 +221,11 @@ func (bot *SlackBot) getChannelName(channelID string) string {
 		ChannelID: channelID,
 	})
 	if err != nil {
+		slackAPICallsTotal.WithLabelValues("get_conversation_info", "error").Inc()
 		log.Printf("Failed to get channel info for %s: %v", channelID, err)
 		return channelID
 	}
+	slackAPICallsTotal.WithLabelValues("get_conversation_info", "success").Inc()
 	return info.Name
 }
 
@@ -196,11 +235,17 @@ func (bot *SlackBot) sendSlackMessage(channel, message string) {
 		slack.MsgOptionText(message, false),
 	)
 	if err != nil {
+		slackAPICallsTotal.WithLabelValues("post_message", "error").Inc()
 		log.Printf("Failed to send Slack message: %v", err)
+		return
 	}
+	slackAPICallsTotal.WithLabelValues("post_message", "success").Inc()
+	slackMessagesSentTotal.Inc()
 }
 
 func (bot *SlackBot) handleSlashCommand(cmd slack.SlashCommand) {
+	slackMessagesReceivedTotal.WithLabelValues("slash_command").Inc()
+	slackCommandsHandledTotal.WithLabelValues(cmd.Command).Inc()
 	log.Printf("Received slash command: %s from user %s in channel %s", cmd.Command, cmd.UserID, cmd.ChannelID)
 
 	switch cmd.Command {
