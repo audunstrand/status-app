@@ -12,68 +12,17 @@
 - **Test code refactoring** (reduced by 40%, improved quality)
 - **URL structure refactoring** (RESTful endpoints)
 - **Automated database migrations** (golang-migrate + Fly.io release commands)
-- **Real-time projections** (PostgreSQL LISTEN/NOTIFY) - Completed 2025-12-10
+- **Real-time projections** (PostgreSQL LISTEN/NOTIFY)
 - **Code quality improvements** (validation, reduced duplication, better tests)
+- **Scheduler reminders** (sends reminders every Monday at 9 AM)
+- **Slack commands** (`/set-team-name`, `/updates`)
 
-## 🚧 To Implement
+## 🚧 Optional Improvements
 
-### 1. ~~Real-Time Projections~~ ✅ COMPLETE (2025-12-10)
+### Add Fly.io Health Checks
 
-**Implementation completed**:
-- PostgreSQL LISTEN/NOTIFY for instant projection updates
-- Integration tests for subscription mechanism
-- All tests passing
-- Deployed to production and verified working
+Add health check endpoints to all services for better monitoring:
 
----
-
-### 2. Scheduler Reminders (1h)
-
-**Current**: Scheduler runs but doesn't send reminders  
-**Goal**: Send Slack messages on schedule
-
-**Implementation**:
-```go
-// cmd/scheduler/main.go
-func checkAndSendReminders(ctx context.Context, repo *projections.Repository) {
-    teams, _ := repo.GetAllTeams(ctx)
-    
-    for _, team := range teams {
-        if shouldRemind(team) {
-            sendSlackReminder(team.SlackChannelID, team.Name)
-            updateLastReminded(team.ID)
-        }
-    }
-}
-
-func shouldRemind(team *Team) bool {
-    // Parse team.PollSchedule (e.g., "monday", "friday", "weekly")
-    // Check if today matches schedule
-    // Check if already reminded today
-    return true // TODO
-}
-
-func sendSlackReminder(channelID, teamName string) error {
-    api := slack.New(os.Getenv("SLACK_BOT_TOKEN"))
-    _, _, err := api.PostMessage(channelID, 
-        slack.MsgOptionText("🔔 Time for your status update!", false))
-    return err
-}
-```
-
-**Steps**:
-1. Add `last_reminded_at TIMESTAMP` to teams table
-2. Implement `shouldRemind()` schedule logic
-3. Add Slack API call to send message
-4. Update last_reminded_at after sending
-
----
-
-### 3. Minor Fixes (30m)
-
-**~~Fix ignored NOTIFY error~~**: ✅ Fixed in code quality refactoring (2025-12-10)
-
-**Add Fly.io health checks**:
 ```toml
 # All fly.*.toml files
 [[services.http_checks]]
@@ -84,13 +33,9 @@ func sendSlackReminder(channelID, teamName string) error {
   path = "/health"
 ```
 
----
+### Future Enhancements
 
-## Summary
-
-**Total remaining work**: ~1.5 hours
-
-- Scheduler reminders: ~1h
-- Health checks: ~30m
-
-Once complete, the app will be 100% feature-complete.
+- Add `/help` Slack command listing all available commands
+- Add metrics/observability (Prometheus, Grafana)
+- Add configurable reminder schedules per team
+- Add reminder preferences (time, frequency)

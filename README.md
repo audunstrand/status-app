@@ -2,14 +2,29 @@
 
 Event-sourced team status updates via Slack.
 
+## Features
+
+- **Event Sourcing**: All state changes stored as immutable events
+- **Real-time Updates**: PostgreSQL LISTEN/NOTIFY for instant projection updates
+- **Slack Integration**: Post updates and manage teams via Slack
+- **Automated Reminders**: Weekly reminders to submit status updates
+- **RESTful API**: Query teams and updates with authentication
+- **Auto Migrations**: Database migrations run automatically on deployment
+
 ## Architecture
 
-**3 services + 1 database** (consolidated from 5 services + 2 databases)
+**3 services + 1 database**
 
-- **Backend**: Commands + API + Projections (combined)
-- **Slackbot**: Slack integration
-- **Scheduler**: Reminder scheduling
+- **Backend**: Commands + API + Projections (port 8080)
+- **Slackbot**: Slack integration (Socket Mode)
+- **Scheduler**: Weekly reminder scheduling (Monday 9 AM)
 - **Database**: PostgreSQL with `events` and `projections` schemas
+
+## Slack Commands
+
+- **Message mentions**: Send status update by mentioning the bot
+- `/set-team-name`: Set a custom name for your team
+- `/updates`: View recent updates from your team
 
 ## Quick Start
 
@@ -45,15 +60,28 @@ make test-e2e       # E2E tests only
 make build          # Builds all services to bin/
 ```
 
+## API Endpoints
+
+**Teams**
+- `POST /teams` - Register a new team
+- `GET /teams` - List all teams
+- `GET /teams/{id}` - Get team details
+- `GET /teams/{id}/updates` - Get team updates
+- `PUT /teams/{id}/name` - Update team name
+
+**Updates**
+- `POST /teams/{id}/updates` - Submit status update
+- `GET /updates` - Get recent updates across all teams
+
+All endpoints require `X-API-Secret` header for authentication.
+
 ## Deployment
 
-Deployed to Fly.io. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+Deployed to Fly.io via GitHub Actions on push to `master`.
 
-GitHub Actions automatically deploys on push to master.
+Services:
+- Backend: `status-app-backend.fly.dev`
+- Slackbot: `status-app-slackbot.fly.dev`
+- Scheduler: `status-app-scheduler.fly.dev`
 
-## Status
-
-✅ **Phase 1 Complete**: Database consolidation (2 → 1 database)
-🚧 **Phase 2 In Progress**: Service consolidation (5 → 3 services)
-
-See [CONSOLIDATION_PROMPTS.md](CONSOLIDATION_PROMPTS.md) for progress.
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for details.
