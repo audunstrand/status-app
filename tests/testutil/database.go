@@ -176,8 +176,8 @@ func InsertTestTeam(t *testing.T, db *sql.DB, teamID, name, channel string) {
 	t.Helper()
 	ctx := context.Background()
 	_, err := db.ExecContext(ctx, `
-		INSERT INTO teams (team_id, name, slack_channel, poll_schedule, created_at, updated_at)
-		VALUES ($1, $2, $3, 'weekly', NOW(), NOW())
+		INSERT INTO teams (team_id, name, slack_channel, created_at, updated_at)
+		VALUES ($1, $2, $3, NOW(), NOW())
 	`, teamID, name, channel)
 	if err != nil {
 		t.Fatalf("Failed to insert test team %s: %v", teamID, err)

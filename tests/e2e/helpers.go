@@ -121,8 +121,8 @@ func scanEvents(rows *sql.Rows) ([]*events.Event, error) {
 
 func projectTeamRegistered(ctx context.Context, db *sql.DB, data *events.TeamRegisteredData) error {
 	query := `
-		INSERT INTO teams (team_id, name, slack_channel, poll_schedule, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO teams (team_id, name, slack_channel, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (team_id) DO NOTHING
 	`
 	_, err := db.ExecContext(ctx, query,
@@ -138,7 +138,7 @@ func projectTeamRegistered(ctx context.Context, db *sql.DB, data *events.TeamReg
 func projectTeamUpdated(ctx context.Context, db *sql.DB, data *events.TeamRegisteredData) error {
 	query := `
 		UPDATE teams
-		SET name = $2, slack_channel = $3, poll_schedule = $4, updated_at = $5
+		SET name = $2, slack_channel = $3, updated_at = $4
 		WHERE team_id = $1
 	`
 	_, err := db.ExecContext(ctx, query,
