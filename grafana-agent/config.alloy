@@ -1,0 +1,33 @@
+prometheus.scrape "backend" {
+  targets = [{"__address__" = "status-app-backend.fly.dev:443", "service" = "backend"}]
+  forward_to = [prometheus.remote_write.metrics_service.receiver]
+  scheme = "https"
+  metrics_path = "/metrics"
+  scrape_interval = "30s"
+}
+
+prometheus.scrape "slackbot" {
+  targets = [{"__address__" = "status-app-slackbot.fly.dev:443", "service" = "slackbot"}]
+  forward_to = [prometheus.remote_write.metrics_service.receiver]
+  scheme = "https"
+  metrics_path = "/metrics"
+  scrape_interval = "30s"
+}
+
+prometheus.scrape "scheduler" {
+  targets = [{"__address__" = "status-app-scheduler.fly.dev:443", "service" = "scheduler"}]
+  forward_to = [prometheus.remote_write.metrics_service.receiver]
+  scheme = "https"
+  metrics_path = "/metrics"
+  scrape_interval = "30s"
+}
+
+prometheus.remote_write "metrics_service" {
+  endpoint {
+    url = env("PROMETHEUS_URL")
+    basic_auth {
+      username = env("PROMETHEUS_USERNAME")
+      password = env("PROMETHEUS_PASSWORD")
+    }
+  }
+}
