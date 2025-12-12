@@ -7,18 +7,32 @@
       {
         "title": "Events Stored per Second",
         "type": "graph",
-        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "expr": "rate(status_app_events_stored_total[5m])",
             "legendFormat": "{{event_type}}"
           }
-        ]
+        ],
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-auduntest-prom"
+        }
       },
       {
         "title": "Projection Lag",
         "type": "gauge",
-        "gridPos": {"x": 12, "y": 0, "w": 6, "h": 8},
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 6,
+          "h": 8
+        },
         "targets": [
           {
             "expr": "status_app_projections_lag_seconds",
@@ -28,50 +42,95 @@
         "options": {
           "thresholds": {
             "steps": [
-              {"value": 0, "color": "green"},
-              {"value": 1, "color": "yellow"},
-              {"value": 5, "color": "red"}
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "yellow"
+              },
+              {
+                "value": 5,
+                "color": "red"
+              }
             ]
           }
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-auduntest-prom"
         }
       },
       {
         "title": "Event Type Distribution",
         "type": "piechart",
-        "gridPos": {"x": 18, "y": 0, "w": 6, "h": 8},
+        "gridPos": {
+          "x": 18,
+          "y": 0,
+          "w": 6,
+          "h": 8
+        },
         "targets": [
           {
             "expr": "sum by (event_type) (status_app_events_stored_total)",
             "legendFormat": "{{event_type}}"
           }
-        ]
+        ],
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-auduntest-prom"
+        }
       },
       {
         "title": "Projection Updates per Minute",
         "type": "graph",
-        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+        "gridPos": {
+          "x": 0,
+          "y": 8,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "expr": "rate(status_app_projections_updates_total[1m])",
             "legendFormat": "{{projection}}"
           }
-        ]
+        ],
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-auduntest-prom"
+        }
       },
       {
         "title": "Projection Processing Duration (p95)",
         "type": "graph",
-        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+        "gridPos": {
+          "x": 12,
+          "y": 8,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "expr": "histogram_quantile(0.95, rate(status_app_projections_processing_duration_seconds_bucket[5m]))",
             "legendFormat": "{{projection}} p95"
           }
-        ]
+        ],
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-auduntest-prom"
+        }
       },
       {
         "title": "Slack Messages",
         "type": "stat",
-        "gridPos": {"x": 0, "y": 16, "w": 6, "h": 4},
+        "gridPos": {
+          "x": 0,
+          "y": 16,
+          "w": 6,
+          "h": 4
+        },
         "targets": [
           {
             "expr": "sum(rate(status_app_slackbot_messages_received_total[5m]))",
@@ -81,45 +140,81 @@
             "expr": "rate(status_app_slackbot_messages_sent_total[5m])",
             "legendFormat": "Sent/s"
           }
-        ]
+        ],
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-auduntest-prom"
+        }
       },
       {
         "title": "Slack Commands Handled",
         "type": "graph",
-        "gridPos": {"x": 6, "y": 16, "w": 6, "h": 4},
+        "gridPos": {
+          "x": 6,
+          "y": 16,
+          "w": 6,
+          "h": 4
+        },
         "targets": [
           {
             "expr": "sum by (command) (status_app_slackbot_commands_handled_total)",
             "legendFormat": "{{command}}"
           }
-        ]
+        ],
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-auduntest-prom"
+        }
       },
       {
         "title": "Backend API Calls",
         "type": "graph",
-        "gridPos": {"x": 12, "y": 16, "w": 6, "h": 4},
+        "gridPos": {
+          "x": 12,
+          "y": 16,
+          "w": 6,
+          "h": 4
+        },
         "targets": [
           {
             "expr": "sum by (endpoint, status) (rate(status_app_slackbot_backend_api_calls_total[5m]))",
             "legendFormat": "{{endpoint}} - {{status}}"
           }
-        ]
+        ],
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-auduntest-prom"
+        }
       },
       {
         "title": "Scheduler - Reminders Sent",
         "type": "stat",
-        "gridPos": {"x": 18, "y": 16, "w": 6, "h": 4},
+        "gridPos": {
+          "x": 18,
+          "y": 16,
+          "w": 6,
+          "h": 4
+        },
         "targets": [
           {
             "expr": "status_app_scheduler_teams_reminder_count",
             "legendFormat": "Teams reminded"
           }
-        ]
+        ],
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-auduntest-prom"
+        }
       },
       {
         "title": "Error Rates",
         "type": "graph",
-        "gridPos": {"x": 0, "y": 20, "w": 12, "h": 8},
+        "gridPos": {
+          "x": 0,
+          "y": 20,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "expr": "sum by (operation) (rate(status_app_events_errors_total[5m]))",
@@ -137,18 +232,31 @@
             "expr": "sum by (error_type) (rate(status_app_scheduler_errors_total[5m]))",
             "legendFormat": "Scheduler: {{error_type}}"
           }
-        ]
+        ],
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-auduntest-prom"
+        }
       },
       {
         "title": "Event Store Size",
         "type": "graph",
-        "gridPos": {"x": 12, "y": 20, "w": 12, "h": 8},
+        "gridPos": {
+          "x": 12,
+          "y": 20,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "expr": "status_app_events_stored_bytes_total / 1024 / 1024",
             "legendFormat": "MB"
           }
-        ]
+        ],
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-auduntest-prom"
+        }
       }
     ],
     "refresh": "30s",
