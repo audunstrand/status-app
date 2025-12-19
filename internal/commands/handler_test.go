@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yourusername/status-app/internal/domain"
 	"github.com/yourusername/status-app/internal/events"
 )
 
@@ -53,12 +54,17 @@ func TestHandler_HandleSubmitStatusUpdate(t *testing.T) {
 	store := &MockEventStore{}
 	handler := NewHandler(store)
 
+	teamID, _ := domain.NewTeamID("team-1")
+	content, _ := domain.NewUpdateContent("Fixed critical bug")
+	author, _ := domain.NewAuthor("John Doe")
+	slackUser, _ := domain.NewSlackUserID("john.doe")
+
 	cmd := SubmitStatusUpdate{
-		TeamID:      "team-1",
+		TeamID:      teamID,
 		ChannelName: "engineering",
-		Content:     "Fixed critical bug",
-		Author:      "John Doe",
-		SlackUser:   "john.doe",
+		Content:     content,
+		Author:      author,
+		SlackUser:   slackUser,
 		Timestamp:   time.Now(),
 	}
 
@@ -67,7 +73,6 @@ func TestHandler_HandleSubmitStatusUpdate(t *testing.T) {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
-	// Should have 2 events: team.registered (auto) + status_update.submitted
 	if len(store.events) != 2 {
 		t.Fatalf("expected 2 events (auto-register + status update), got %d", len(store.events))
 	}
@@ -89,9 +94,12 @@ func TestHandler_HandleRegisterTeam(t *testing.T) {
 	store := &MockEventStore{}
 	handler := NewHandler(store)
 
+	name, _ := domain.NewTeamName("Engineering")
+	channel, _ := domain.NewSlackChannel("#engineering")
+
 	cmd := RegisterTeam{
-		Name:         "Engineering",
-		SlackChannel: "#engineering",
+		Name:         name,
+		SlackChannel: channel,
 	}
 
 	err := handler.Handle(context.Background(), cmd)
@@ -113,10 +121,14 @@ func TestHandler_HandleUpdateTeam(t *testing.T) {
 	store := &MockEventStore{}
 	handler := NewHandler(store)
 
+	teamID, _ := domain.NewTeamID("team-1")
+	name, _ := domain.NewTeamName("Updated Engineering")
+	channel, _ := domain.NewSlackChannel("#new-engineering")
+
 	cmd := UpdateTeam{
-		TeamID:       "team-1",
-		Name:         "Updated Engineering",
-		SlackChannel: "#new-engineering",
+		TeamID:       teamID,
+		Name:         name,
+		SlackChannel: channel,
 	}
 
 	err := handler.Handle(context.Background(), cmd)

@@ -21,12 +21,8 @@ func TestUpdateTeamName(t *testing.T) {
 	cmdHandler := commands.NewHandler(eventStore)
 	repo := projections.NewRepository(testDB.DB)
 
-	// Manually register a team to simulate auto-registration
 	channelID := "C123456789"
-	registerCmd := commands.RegisterTeam{
-		Name:         "general",
-		SlackChannel: channelID,
-	}
+	registerCmd := mustRegisterTeam("general", channelID)
 
 	err := cmdHandler.Handle(ctx, registerCmd)
 	if err != nil {
@@ -50,12 +46,7 @@ func TestUpdateTeamName(t *testing.T) {
 		t.Errorf("Expected initial team name 'general', got '%s'", team.Name)
 	}
 
-	// Update team name
-	updateCmd := commands.UpdateTeam{
-		TeamID:       teamID,
-		Name:         "Product Team",
-		SlackChannel: channelID,
-	}
+	updateCmd := mustUpdateTeam(teamID, "Product Team", channelID)
 
 	err = cmdHandler.Handle(ctx, updateCmd)
 	if err != nil {

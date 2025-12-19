@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/yourusername/status-app/internal/commands"
 	"github.com/yourusername/status-app/internal/events"
@@ -23,18 +22,16 @@ func TestAutoRegisterTeamOnFirstUpdate(t *testing.T) {
 	cmdHandler := commands.NewHandler(eventStore)
 	repo := projections.NewRepository(testDB.DB)
 
-	// Submit a status update to a channel that hasn't been registered
 	channelID := "C123456789"
 	channelName := "general"
 	
-	submitCmd := commands.SubmitStatusUpdate{
-		TeamID:      channelID,
-		ChannelName: channelName,
-		Content:     "First update in this channel",
-		Author:      "Jane Smith",
-		SlackUser:   "jane.smith",
-		Timestamp:   time.Now(),
-	}
+	submitCmd := mustSubmitStatusUpdate(
+		channelID,
+		channelName,
+		"First update in this channel",
+		"Jane Smith",
+		"jane.smith",
+	)
 
 	err := cmdHandler.Handle(ctx, submitCmd)
 	if err != nil {
@@ -119,30 +116,26 @@ func TestSubsequentUpdateDoesNotRegisterAgain(t *testing.T) {
 	channelID := "C987654321"
 	channelName := "engineering"
 
-	// First update - should auto-register
-	firstCmd := commands.SubmitStatusUpdate{
-		TeamID:      channelID,
-		ChannelName: channelName,
-		Content:     "First update",
-		Author:      "Alice",
-		SlackUser:   "alice",
-		Timestamp:   time.Now(),
-	}
+	firstCmd := mustSubmitStatusUpdate(
+		channelID,
+		channelName,
+		"First update",
+		"Alice",
+		"alice",
+	)
 
 	err := cmdHandler.Handle(ctx, firstCmd)
 	if err != nil {
 		t.Fatalf("Failed to submit first update: %v", err)
 	}
 
-	// Second update - should NOT register again
-	secondCmd := commands.SubmitStatusUpdate{
-		TeamID:      channelID,
-		ChannelName: channelName,
-		Content:     "Second update",
-		Author:      "Bob",
-		SlackUser:   "bob",
-		Timestamp:   time.Now(),
-	}
+	secondCmd := mustSubmitStatusUpdate(
+		channelID,
+		channelName,
+		"Second update",
+		"Bob",
+		"bob",
+	)
 
 	err = cmdHandler.Handle(ctx, secondCmd)
 	if err != nil {

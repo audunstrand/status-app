@@ -64,41 +64,43 @@ func (h *Handler) createAndAppendEvent(
 }
 
 func (h *Handler) handleSubmitStatusUpdate(ctx context.Context, cmd SubmitStatusUpdate) error {
-	// Check if team exists by looking for any events with this aggregate ID
-	existingEvents, err := h.eventStore.GetByAggregateID(ctx, cmd.TeamID)
+	teamIDStr := cmd.TeamID.String()
+	
+	existingEvents, err := h.eventStore.GetByAggregateID(ctx, teamIDStr)
 	if err != nil {
 		return fmt.Errorf("failed to check for existing team: %w", err)
 	}
 
-	// If no events exist for this team, auto-register it
 	if len(existingEvents) == 0 {
-		teamName := cmd.ChannelName
-		if teamName == "" {
-			teamName = cmd.TeamID
+		if cmd.ChannelName == "" {
+			return fmt.Errorf(
+				"expected ChannelName to exist for team auto-registration, but it was empty. "+
+					"TeamID: %s. Cannot auto-register team without channel name",
+				teamIDStr,
+			)
 		}
 
 		registerData := events.TeamRegisteredData{
-			TeamID:       cmd.TeamID,
-			Name:         teamName,
-			SlackChannel: cmd.TeamID,
+			TeamID:       teamIDStr,
+			Name:         cmd.ChannelName,
+			SlackChannel: teamIDStr,
 		}
 
-		if err := h.createAndAppendEvent(ctx, events.TeamRegistered, cmd.TeamID, registerData); err != nil {
+		if err := h.createAndAppendEvent(ctx, events.TeamRegistered, teamIDStr, registerData); err != nil {
 			return fmt.Errorf("failed to auto-register team: %w", err)
 		}
 	}
 
-	// Submit the status update
 	data := events.StatusUpdateSubmittedData{
 		UpdateID:  uuid.New().String(),
-		TeamID:    cmd.TeamID,
-		Content:   cmd.Content,
-		Author:    cmd.Author,
-		SlackUser: cmd.SlackUser,
+		TeamID:    teamIDStr,
+		Content:   cmd.Content.String(),
+		Author:    cmd.Author.String(),
+		SlackUser: cmd.SlackUser.String(),
 		Timestamp: cmd.Timestamp,
 	}
 
-	return h.createAndAppendEvent(ctx, events.StatusUpdateSubmitted, cmd.TeamID, data)
+	return h.createAndAppendEvent(ctx, events.StatusUpdateSubmitted, teamIDStr, data)
 }
 
 func (h *Handler) handleRegisterTeam(ctx context.Context, cmd RegisterTeam) error {
@@ -106,8 +108,8 @@ func (h *Handler) handleRegisterTeam(ctx context.Context, cmd RegisterTeam) erro
 
 	data := events.TeamRegisteredData{
 		TeamID:       teamID,
-		Name:         cmd.Name,
-		SlackChannel: cmd.SlackChannel,
+		Name:         cmd.Name.String(),
+		SlackChannel: cmd.SlackChannel.String(),
 	}
 
 	return h.createAndAppendEvent(ctx, events.TeamRegistered, teamID, data)
@@ -115,10 +117,10 @@ func (h *Handler) handleRegisterTeam(ctx context.Context, cmd RegisterTeam) erro
 
 func (h *Handler) handleUpdateTeam(ctx context.Context, cmd UpdateTeam) error {
 	data := events.TeamUpdatedData{
-		TeamID:       cmd.TeamID,
-		Name:         cmd.Name,
-		SlackChannel: cmd.SlackChannel,
+		TeamID:       cmd.TeamID.String(),
+		Name:         cmd.Name.String(),
+		SlackChannel: cmd.SlackChannel.String(),
 	}
 
-	return h.createAndAppendEvent(ctx, events.TeamUpdated, cmd.TeamID, data)
+	return h.createAndAppendEvent(ctx, events.TeamUpdated, cmd.TeamID.String(), data)
 }

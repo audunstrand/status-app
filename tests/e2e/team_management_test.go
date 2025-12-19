@@ -22,11 +22,7 @@ func TestTeamManagementFlow(t *testing.T) {
 	cmdHandler := commands.NewHandler(eventStore)
 	repo := projections.NewRepository(testDB.DB)
 
-	// Step 1: Register a team
-	registerCmd := commands.RegisterTeam{
-		Name:         "Product Team",
-		SlackChannel: "#product",
-	}
+	registerCmd := mustRegisterTeam("Product Team", "#product")
 
 	err := cmdHandler.Handle(ctx, registerCmd)
 	if err != nil {
@@ -60,12 +56,7 @@ func TestTeamManagementFlow(t *testing.T) {
 		t.Errorf("Expected slack channel '#product', got '%s'", team.SlackChannel)
 	}
 
-	// Step 3: Update the team
-	updateCmd := commands.UpdateTeam{
-		TeamID:       teamID,
-		Name:         "Product Team v2",
-		SlackChannel: "#product-new",
-	}
+	updateCmd := mustUpdateTeam(teamID, "Product Team v2", "#product-new")
 
 	err = cmdHandler.Handle(ctx, updateCmd)
 	if err != nil {

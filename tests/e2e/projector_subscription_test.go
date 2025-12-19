@@ -40,11 +40,7 @@ func TestProjectorSubscriptionRealtime(t *testing.T) {
 	// Wait a bit for the projector to initialize
 	time.Sleep(100 * time.Millisecond)
 
-	// Register a team
-	registerCmd := commands.RegisterTeam{
-		Name:         "Engineering",
-		SlackChannel: "#engineering",
-	}
+	registerCmd := mustRegisterTeam("Engineering", "#engineering")
 
 	err = cmdHandler.Handle(ctx, registerCmd)
 	if err != nil {
@@ -74,15 +70,13 @@ func TestProjectorSubscriptionRealtime(t *testing.T) {
 		t.Errorf("Expected team name 'Engineering', got '%s'", team.Name)
 	}
 
-	// Submit a status update
-	submitCmd := commands.SubmitStatusUpdate{
-		TeamID:      teamID,
-		ChannelName: "engineering",
-		Content:     "Implemented real-time projections",
-		Author:      "Alice",
-		SlackUser:   "alice",
-		Timestamp:   time.Now(),
-	}
+	submitCmd := mustSubmitStatusUpdate(
+		teamID,
+		"engineering",
+		"Implemented real-time projections",
+		"Alice",
+		"alice",
+	)
 
 	err = cmdHandler.Handle(ctx, submitCmd)
 	if err != nil {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/yourusername/status-app/internal/commands"
 	"github.com/yourusername/status-app/internal/events"
@@ -23,11 +22,7 @@ func TestStatusUpdateFlow(t *testing.T) {
 	cmdHandler := commands.NewHandler(eventStore)
 	repo := projections.NewRepository(testDB.DB)
 
-	// Step 1: Register a team
-	registerCmd := commands.RegisterTeam{
-		Name:         "Engineering",
-		SlackChannel: "#engineering",
-	}
+	registerCmd := mustRegisterTeam("Engineering", "#engineering")
 
 	err := cmdHandler.Handle(ctx, registerCmd)
 	if err != nil {
@@ -57,14 +52,13 @@ func TestStatusUpdateFlow(t *testing.T) {
 		t.Errorf("Expected team name 'Engineering', got '%s'", team.Name)
 	}
 
-	// Step 2: Submit a status update
-	submitCmd := commands.SubmitStatusUpdate{
-		TeamID:    teamID,
-		Content:   "Completed the event sourcing implementation",
-		Author:    "John Doe",
-		SlackUser: "john.doe",
-		Timestamp: time.Now(),
-	}
+	submitCmd := mustSubmitStatusUpdate(
+		teamID,
+		"",
+		"Completed the event sourcing implementation",
+		"John Doe",
+		"john.doe",
+	)
 
 	err = cmdHandler.Handle(ctx, submitCmd)
 	if err != nil {

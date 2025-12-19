@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"github.com/yourusername/status-app/internal/auth"
 	"github.com/yourusername/status-app/internal/commands"
 	"github.com/yourusername/status-app/internal/config"
+	"github.com/yourusername/status-app/internal/domain"
 	"github.com/yourusername/status-app/internal/events"
 	"github.com/yourusername/status-app/internal/projections"
 )
@@ -164,9 +166,15 @@ func jsonError(w http.ResponseWriter, message string, code int) {
 // Command handlers
 func handleSubmitUpdate(handler *commands.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		teamID := r.PathValue("id")
-		if teamID == "" {
+		teamIDStr := r.PathValue("id")
+		if teamIDStr == "" {
 			jsonError(w, "team ID is required", http.StatusBadRequest)
+			return
+		}
+
+		teamID, err := domain.NewTeamID(teamIDStr)
+		if err != nil {
+			jsonError(w, fmt.Sprintf("invalid team ID: %v", err), http.StatusBadRequest)
 			return
 		}
 
@@ -181,12 +189,30 @@ func handleSubmitUpdate(handler *commands.Handler) http.HandlerFunc {
 			return
 		}
 
+		content, err := domain.NewUpdateContent(req.Content)
+		if err != nil {
+			jsonError(w, fmt.Sprintf("invalid content: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		author, err := domain.NewAuthor(req.Author)
+		if err != nil {
+			jsonError(w, fmt.Sprintf("invalid author: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		slackUser, err := domain.NewSlackUserID(req.Author)
+		if err != nil {
+			jsonError(w, fmt.Sprintf("invalid slack user: %v", err), http.StatusBadRequest)
+			return
+		}
+
 		cmd := commands.SubmitStatusUpdate{
 			TeamID:      teamID,
 			ChannelName: req.ChannelName,
-			Content:     req.Content,
-			Author:      req.Author,
-			SlackUser:   req.Author,
+			Content:     content,
+			Author:      author,
+			SlackUser:   slackUser,
 			Timestamp:   time.Now(),
 		}
 
@@ -216,9 +242,21 @@ func handleRegisterTeam(handler *commands.Handler) http.HandlerFunc {
 			return
 		}
 
+		name, err := domain.NewTeamName(req.Name)
+		if err != nil {
+			jsonError(w, fmt.Sprintf("invalid team name: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		channel, err := domain.NewSlackChannel(req.SlackChannel)
+		if err != nil {
+			jsonError(w, fmt.Sprintf("invalid slack channel: %v", err), http.StatusBadRequest)
+			return
+		}
+
 		cmd := commands.RegisterTeam{
-			Name:         req.Name,
-			SlackChannel: req.SlackChannel,
+			Name:         name,
+			SlackChannel: channel,
 		}
 
 		if err := handler.Handle(r.Context(), cmd); err != nil {
@@ -283,9 +321,15 @@ func (r *UpdateTeamNameRequest) Validate() error {
 
 func handleUpdateTeamName(handler *commands.Handler, repo *projections.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		teamID := r.PathValue("id")
-		if teamID == "" {
+		teamIDStr := r.PathValue("id")
+		if teamIDStr == "" {
 			jsonError(w, "team ID is required", http.StatusBadRequest)
+			return
+		}
+
+		teamID, err := domain.NewTeamID(teamIDStr)
+		if err != nil {
+			jsonError(w, fmt.Sprintf("invalid team ID: %v", err), http.StatusBadRequest)
 			return
 		}
 
@@ -300,8 +344,13 @@ func handleUpdateTeamName(handler *commands.Handler, repo *projections.Repositor
 			return
 		}
 
-		// Get current team info to preserve other fields
-		team, err := repo.GetTeam(r.Context(), teamID)
+		name, err := domain.NewTeamName(req.Name)
+		if err != nil {
+			jsonError(w, fmt.Sprintf("invalid team name: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		team, err := repo.GetTeam(r.Context(), teamIDStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				jsonError(w, "team not found", http.StatusNotFound)
@@ -311,10 +360,16 @@ func handleUpdateTeamName(handler *commands.Handler, repo *projections.Repositor
 			return
 		}
 
+		channel, err := domain.NewSlackChannel(team.SlackChannel)
+		if err != nil {
+			jsonError(w, fmt.Sprintf("invalid slack channel: %v", err), http.StatusInternalServerError)
+			return
+		}
+
 		cmd := commands.UpdateTeam{
 			TeamID:       teamID,
-			Name:         req.Name,
-			SlackChannel: team.SlackChannel,
+			Name:         name,
+			SlackChannel: channel,
 		}
 
 		if err := handler.Handle(r.Context(), cmd); err != nil {

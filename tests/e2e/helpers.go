@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/yourusername/status-app/internal/commands"
+	"github.com/yourusername/status-app/internal/domain"
 	"github.com/yourusername/status-app/internal/events"
 )
 
@@ -165,4 +167,66 @@ func projectStatusUpdate(ctx context.Context, db *sql.DB, data *events.StatusUpd
 		data.Timestamp,
 	)
 	return err
+}
+
+func mustSubmitStatusUpdate(teamID, channelName, content, author, slackUser string) commands.SubmitStatusUpdate {
+	tid, err := domain.NewTeamID(teamID)
+	if err != nil {
+		panic(err)
+	}
+	cont, err := domain.NewUpdateContent(content)
+	if err != nil {
+		panic(err)
+	}
+	auth, err := domain.NewAuthor(author)
+	if err != nil {
+		panic(err)
+	}
+	slack, err := domain.NewSlackUserID(slackUser)
+	if err != nil {
+		panic(err)
+	}
+	return commands.SubmitStatusUpdate{
+		TeamID:      tid,
+		ChannelName: channelName,
+		Content:     cont,
+		Author:      auth,
+		SlackUser:   slack,
+		Timestamp:   time.Now(),
+	}
+}
+
+func mustRegisterTeam(name, slackChannel string) commands.RegisterTeam {
+	n, err := domain.NewTeamName(name)
+	if err != nil {
+		panic(err)
+	}
+	ch, err := domain.NewSlackChannel(slackChannel)
+	if err != nil {
+		panic(err)
+	}
+	return commands.RegisterTeam{
+		Name:         n,
+		SlackChannel: ch,
+	}
+}
+
+func mustUpdateTeam(teamID, name, slackChannel string) commands.UpdateTeam {
+	tid, err := domain.NewTeamID(teamID)
+	if err != nil {
+		panic(err)
+	}
+	n, err := domain.NewTeamName(name)
+	if err != nil {
+		panic(err)
+	}
+	ch, err := domain.NewSlackChannel(slackChannel)
+	if err != nil {
+		panic(err)
+	}
+	return commands.UpdateTeam{
+		TeamID:       tid,
+		Name:         n,
+		SlackChannel: ch,
+	}
 }

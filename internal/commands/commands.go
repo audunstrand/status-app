@@ -3,70 +3,71 @@ package commands
 import (
 	"errors"
 	"time"
+
+	"github.com/yourusername/status-app/internal/domain"
 )
 
-// Command represents a command in the system
 type Command interface {
 	Validate() error
 }
 
-// SubmitStatusUpdate command
 type SubmitStatusUpdate struct {
-	TeamID      string
+	TeamID      domain.TeamID
 	ChannelName string
-	Content     string
-	Author      string
-	SlackUser   string
+	Content     domain.UpdateContent
+	Author      domain.Author
+	SlackUser   domain.SlackUserID
 	Timestamp   time.Time
 }
 
 func (c SubmitStatusUpdate) Validate() error {
-	if c.TeamID == "" {
+	if c.TeamID.IsEmpty() {
 		return errors.New("team_id is required")
 	}
-	if c.Content == "" {
+	if c.Content.String() == "" {
 		return errors.New("content is required")
 	}
-	if c.Author == "" {
+	if c.Author.String() == "" {
 		return errors.New("author is required")
 	}
-	if c.SlackUser == "" {
+	if c.SlackUser.String() == "" {
 		return errors.New("slack_user is required")
+	}
+	if c.ChannelName == "" {
+		return errors.New("channel_name is required")
 	}
 	return nil
 }
 
-// RegisterTeam command
 type RegisterTeam struct {
-	Name         string
-	SlackChannel string
+	Name         domain.TeamName
+	SlackChannel domain.SlackChannel
 }
 
 func (c RegisterTeam) Validate() error {
-	if c.Name == "" {
+	if c.Name.String() == "" {
 		return errors.New("name is required")
 	}
-	if c.SlackChannel == "" {
+	if c.SlackChannel.String() == "" {
 		return errors.New("slack_channel is required")
 	}
 	return nil
 }
 
-// UpdateTeam command
 type UpdateTeam struct {
-	TeamID       string
-	Name         string
-	SlackChannel string
+	TeamID       domain.TeamID
+	Name         domain.TeamName
+	SlackChannel domain.SlackChannel
 }
 
 func (c UpdateTeam) Validate() error {
-	if c.TeamID == "" {
+	if c.TeamID.IsEmpty() {
 		return errors.New("team_id is required")
 	}
-	if c.Name == "" {
+	if c.Name.String() == "" {
 		return errors.New("name is required")
 	}
-	if c.SlackChannel == "" {
+	if c.SlackChannel.String() == "" {
 		return errors.New("slack_channel is required")
 	}
 	return nil

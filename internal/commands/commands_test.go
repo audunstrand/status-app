@@ -3,9 +3,16 @@ package commands
 import (
 	"testing"
 	"time"
+
+	"github.com/yourusername/status-app/internal/domain"
 )
 
 func TestSubmitStatusUpdate_Validate(t *testing.T) {
+	validTeamID, _ := domain.NewTeamID("team-123")
+	validContent, _ := domain.NewUpdateContent("Working on feature X")
+	validAuthor, _ := domain.NewAuthor("Alice")
+	validSlackUser, _ := domain.NewSlackUserID("alice")
+
 	tests := []struct {
 		name    string
 		cmd     SubmitStatusUpdate
@@ -15,20 +22,22 @@ func TestSubmitStatusUpdate_Validate(t *testing.T) {
 		{
 			name: "valid command",
 			cmd: SubmitStatusUpdate{
-				TeamID:    "team-123",
-				Content:   "Working on feature X",
-				Author:    "Alice",
-				SlackUser: "alice",
-				Timestamp: time.Now(),
+				TeamID:      validTeamID,
+				ChannelName: "engineering",
+				Content:     validContent,
+				Author:      validAuthor,
+				SlackUser:   validSlackUser,
+				Timestamp:   time.Now(),
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing team_id",
 			cmd: SubmitStatusUpdate{
-				Content:   "Working on feature X",
-				Author:    "Alice",
-				SlackUser: "alice",
+				ChannelName: "engineering",
+				Content:     validContent,
+				Author:      validAuthor,
+				SlackUser:   validSlackUser,
 			},
 			wantErr: true,
 			errMsg:  "team_id is required",
@@ -36,9 +45,10 @@ func TestSubmitStatusUpdate_Validate(t *testing.T) {
 		{
 			name: "missing content",
 			cmd: SubmitStatusUpdate{
-				TeamID:    "team-123",
-				Author:    "Alice",
-				SlackUser: "alice",
+				TeamID:      validTeamID,
+				ChannelName: "engineering",
+				Author:      validAuthor,
+				SlackUser:   validSlackUser,
 			},
 			wantErr: true,
 			errMsg:  "content is required",
@@ -46,9 +56,10 @@ func TestSubmitStatusUpdate_Validate(t *testing.T) {
 		{
 			name: "missing author",
 			cmd: SubmitStatusUpdate{
-				TeamID:    "team-123",
-				Content:   "Working on feature X",
-				SlackUser: "alice",
+				TeamID:      validTeamID,
+				ChannelName: "engineering",
+				Content:     validContent,
+				SlackUser:   validSlackUser,
 			},
 			wantErr: true,
 			errMsg:  "author is required",
@@ -56,12 +67,24 @@ func TestSubmitStatusUpdate_Validate(t *testing.T) {
 		{
 			name: "missing slack_user",
 			cmd: SubmitStatusUpdate{
-				TeamID:  "team-123",
-				Content: "Working on feature X",
-				Author:  "Alice",
+				TeamID:      validTeamID,
+				ChannelName: "engineering",
+				Content:     validContent,
+				Author:      validAuthor,
 			},
 			wantErr: true,
 			errMsg:  "slack_user is required",
+		},
+		{
+			name: "missing channel_name",
+			cmd: SubmitStatusUpdate{
+				TeamID:    validTeamID,
+				Content:   validContent,
+				Author:    validAuthor,
+				SlackUser: validSlackUser,
+			},
+			wantErr: true,
+			errMsg:  "channel_name is required",
 		},
 	}
 
@@ -80,6 +103,9 @@ func TestSubmitStatusUpdate_Validate(t *testing.T) {
 }
 
 func TestRegisterTeam_Validate(t *testing.T) {
+	validName, _ := domain.NewTeamName("Engineering")
+	validChannel, _ := domain.NewSlackChannel("#engineering")
+
 	tests := []struct {
 		name    string
 		cmd     RegisterTeam
@@ -89,15 +115,15 @@ func TestRegisterTeam_Validate(t *testing.T) {
 		{
 			name: "valid command",
 			cmd: RegisterTeam{
-				Name:         "Engineering",
-				SlackChannel: "#engineering",
+				Name:         validName,
+				SlackChannel: validChannel,
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing name",
 			cmd: RegisterTeam{
-				SlackChannel: "#engineering",
+				SlackChannel: validChannel,
 			},
 			wantErr: true,
 			errMsg:  "name is required",
@@ -105,7 +131,7 @@ func TestRegisterTeam_Validate(t *testing.T) {
 		{
 			name: "missing slack_channel",
 			cmd: RegisterTeam{
-				Name: "Engineering",
+				Name: validName,
 			},
 			wantErr: true,
 			errMsg:  "slack_channel is required",
@@ -127,6 +153,10 @@ func TestRegisterTeam_Validate(t *testing.T) {
 }
 
 func TestUpdateTeam_Validate(t *testing.T) {
+	validTeamID, _ := domain.NewTeamID("team-123")
+	validName, _ := domain.NewTeamName("Engineering")
+	validChannel, _ := domain.NewSlackChannel("#engineering")
+
 	tests := []struct {
 		name    string
 		cmd     UpdateTeam
@@ -136,17 +166,17 @@ func TestUpdateTeam_Validate(t *testing.T) {
 		{
 			name: "valid command",
 			cmd: UpdateTeam{
-				TeamID:       "team-123",
-				Name:         "Engineering",
-				SlackChannel: "#engineering",
+				TeamID:       validTeamID,
+				Name:         validName,
+				SlackChannel: validChannel,
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing team_id",
 			cmd: UpdateTeam{
-				Name:         "Engineering",
-				SlackChannel: "#engineering",
+				Name:         validName,
+				SlackChannel: validChannel,
 			},
 			wantErr: true,
 			errMsg:  "team_id is required",
