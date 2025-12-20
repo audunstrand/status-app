@@ -54,7 +54,7 @@ func TestStatusUpdateFlow(t *testing.T) {
 
 	submitCmd := mustSubmitStatusUpdate(
 		teamID,
-		"",
+		"engineering",
 		"Completed the event sourcing implementation",
 		"John Doe",
 		"john.doe",
